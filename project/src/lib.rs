@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use rusqlite::OptionalExtension;
 pub use rusqlite::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // Core Data entity id for Movie, the only entity actually stored in
 // ZCOLLECTIBLE in practice (confirmed directly: every row in a real
@@ -302,6 +303,354 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
     Ok(movies)
 }
 
+/// Opens a `.mvcp` package (or its `Movie_data` file directly) for
+/// writing.
+pub fn open_writable(db: &Path) -> Result<Connection> {
+    let db_path = resolve_db_path(db);
+    Connection::open(&db_path).with_context(|| format!("opening {}", db_path.display()))
+}
+
+/// Copies `Movie_data` to `backups/Movie_data.<nanos>.bak` before any
+/// write — same convention as the other two projects.
+pub fn backup_database(db: &Path) -> Result<()> {
+    let db_path = resolve_db_path(db);
+    let backups_dir = db_path
+        .parent()
+        .context("database path has no parent directory")?
+        .join("backups");
+    std::fs::create_dir_all(&backups_dir)?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_nanos();
+    let dest = backups_dir.join(format!("Movie_data.{nanos}.bak"));
+    std::fs::copy(&db_path, &dest)
+        .with_context(|| format!("backing up {} to {}", db_path.display(), dest.display()))?;
+    Ok(())
+}
+
+/// The fields a new or edited movie can carry — deliberately a subset
+/// of the full schema for now (see MOVIE.md for what's left).
+#[derive(clap::Args, Deserialize, Default)]
+pub struct MovieFields {
+    #[arg(long)]
+    pub title: String,
+    #[arg(long)]
+    pub title_original: Option<String>,
+    #[arg(long)]
+    pub release_year: Option<String>,
+    #[arg(long)]
+    pub rating: Option<i64>,
+    #[arg(long)]
+    pub notes: Option<String>,
+    #[arg(long)]
+    pub plot: Option<String>,
+    #[arg(long)]
+    pub upc: Option<String>,
+    /// Must already exist (one of Movie Collector's own named
+    /// sub-collections) — this never creates a new one.
+    #[arg(long)]
+    pub collection: Option<String>,
+    #[arg(long)]
+    pub country: Option<String>,
+    #[arg(long = "genre")]
+    pub genres: Vec<String>,
+    #[arg(long = "studio")]
+    pub studios: Vec<String>,
+    #[arg(long = "format")]
+    pub formats: Vec<String>,
+    #[arg(long = "actor")]
+    pub actors: Vec<String>,
+    /// Crew names only for now — `ZROLEID` has no label anywhere in
+    /// the database itself (see MOVIE.md § 4), so new crew rows are
+    /// written with no role id rather than a guessed one.
+    #[arg(long = "crew")]
+    pub crew: Vec<String>,
+}
+
+/// Looks up the numeric Core Data entity id for an entity name, e.g.
+/// `"Movie"` or `"LookupItemDelegate"`, directly from `Z_PRIMARYKEY`
+/// rather than hardcoding every id this project's write path needs.
+fn entity_id(conn: &Connection, name: &str) -> Result<i64> {
+    conn.query_row("SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = ?1", [name], |r| r.get(0))
+        .with_context(|| format!("entity '{name}' not found in Z_PRIMARYKEY"))
+}
+
+/// Allocates new `Z_PK` values for a plan being built against a
+/// read-only connection (nothing is actually written until `commit`
+/// runs). Tracks how many pks it has already handed out per entity
+/// this plan, so e.g. two new genres in the same `add` get distinct
+/// pks instead of both reading the same stale `Z_MAX`.
+struct PkAllocator<'a> {
+    conn: &'a Connection,
+    allocated: HashMap<String, i64>,
+}
+
+impl<'a> PkAllocator<'a> {
+    fn new(conn: &'a Connection) -> Self {
+        Self {
+            conn,
+            allocated: HashMap::new(),
+        }
+    }
+
+    fn next(&mut self, entity_name: &str) -> Result<i64> {
+        let base: i64 = self
+            .conn
+            .query_row("SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = ?1", [entity_name], |r| {
+                r.get(0)
+            })
+            .with_context(|| format!("entity '{entity_name}' not found in Z_PRIMARYKEY"))?;
+        let count = self.allocated.entry(entity_name.to_string()).or_insert(0);
+        *count += 1;
+        Ok(base + *count)
+    }
+
+    /// One `UPDATE Z_PRIMARYKEY` statement per entity this plan
+    /// actually allocated a new pk for.
+    fn finish_sql(&self) -> Vec<String> {
+        self.allocated
+            .iter()
+            .map(|(name, count)| {
+                format!(
+                    "UPDATE Z_PRIMARYKEY SET Z_MAX = Z_MAX + {count} WHERE Z_NAME = '{name}';"
+                )
+            })
+            .collect()
+    }
+}
+
+/// Core Data reference-date timestamp (seconds since 2001-01-01) for
+/// "now" — same conversion as the read path's `ZDATEADDED` query, just
+/// going the other direction.
+fn current_core_data_timestamp() -> Result<f64> {
+    let unix_seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs_f64();
+    Ok(unix_seconds - 978_307_200.0)
+}
+
+fn sql_escape(s: &str) -> String {
+    s.replace('\'', "''")
+}
+
+fn sql_literal(s: &Option<String>) -> String {
+    match s {
+        Some(v) => format!("'{}'", sql_escape(v)),
+        None => "NULL".to_string(),
+    }
+}
+
+/// Resolves `name` against an existing row of a two-hop lookup kind
+/// (own thin table `table`, `ZDELEGATE → ZLOOKUPITEMDELEGATE`) by
+/// exact display-name match, or stages the two INSERTs needed to
+/// create one. Returns the lookup's own (not the delegate's) pk.
+fn resolve_or_create_lookup(
+    conn: &Connection,
+    alloc: &mut PkAllocator,
+    table: &str,
+    table_entity: &str,
+    name: &str,
+    create_sql: &mut Vec<String>,
+) -> Result<i64> {
+    let existing: Option<i64> = conn
+        .query_row(
+            &format!(
+                "SELECT t.Z_PK FROM {table} t \
+                 JOIN ZLOOKUPITEMDELEGATE d ON t.ZDELEGATE = d.Z_PK \
+                 WHERE d.ZDISPLAYNAME = ?1"
+            ),
+            [name],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if let Some(pk) = existing {
+        return Ok(pk);
+    }
+
+    let delegate_pk = alloc.next("LookupItemDelegate")?;
+    let delegate_ent = entity_id(conn, "LookupItemDelegate")?;
+    let table_pk = alloc.next(table_entity)?;
+    let table_ent = entity_id(conn, table_entity)?;
+    let escaped = sql_escape(name);
+
+    create_sql.push(format!(
+        "INSERT INTO ZLOOKUPITEMDELEGATE (Z_PK, Z_ENT, Z_OPT, ZDISPLAYNAME, ZSORTNAME) \
+         VALUES ({delegate_pk}, {delegate_ent}, 1, '{escaped}', '{escaped}');"
+    ));
+    create_sql.push(format!(
+        "INSERT INTO {table} (Z_PK, Z_ENT, Z_OPT, ZDELEGATE) VALUES ({table_pk}, {table_ent}, 1, {delegate_pk});"
+    ));
+    Ok(table_pk)
+}
+
+/// Same shape as `resolve_or_create_lookup`, but via `ZPERSONDELEGATE`
+/// for person-like entities (`Actor`, `CreditPerson`).
+fn resolve_or_create_person(
+    conn: &Connection,
+    alloc: &mut PkAllocator,
+    table: &str,
+    table_entity: &str,
+    name: &str,
+    create_sql: &mut Vec<String>,
+) -> Result<i64> {
+    let existing: Option<i64> = conn
+        .query_row(
+            &format!(
+                "SELECT t.Z_PK FROM {table} t \
+                 JOIN ZPERSONDELEGATE d ON t.ZDELEGATE = d.Z_PK \
+                 WHERE d.ZDISPLAYNAME = ?1"
+            ),
+            [name],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if let Some(pk) = existing {
+        return Ok(pk);
+    }
+
+    let delegate_pk = alloc.next("PersonDelegate")?;
+    let delegate_ent = entity_id(conn, "PersonDelegate")?;
+    let table_pk = alloc.next(table_entity)?;
+    let table_ent = entity_id(conn, table_entity)?;
+    let escaped = sql_escape(name);
+
+    create_sql.push(format!(
+        "INSERT INTO ZPERSONDELEGATE (Z_PK, Z_ENT, Z_OPT, ZDISPLAYNAME, ZSORTNAME) \
+         VALUES ({delegate_pk}, {delegate_ent}, 1, '{escaped}', '{escaped}');"
+    ));
+    create_sql.push(format!(
+        "INSERT INTO {table} (Z_PK, Z_ENT, Z_OPT, ZDELEGATE) VALUES ({table_pk}, {table_ent}, 1, {delegate_pk});"
+    ));
+    Ok(table_pk)
+}
+
+/// Resolves an existing sub-collection by exact title match — never
+/// creates one (same rule as Book/Music Collector's own
+/// `AlbumFields.collection`/`BookFields`-equivalent).
+fn resolve_collection_pk(conn: &Connection, name: &str) -> Result<i64> {
+    conn.query_row("SELECT Z_PK FROM ZCOLLECTION WHERE ZTITLE = ?1", [name], |r| r.get(0))
+        .with_context(|| format!("no sub-collection named '{name}'"))
+}
+
+/// Builds the full SQL text to add one movie, wrapped in
+/// `BEGIN;`/`COMMIT;` — resolved against `conn` (a read-only
+/// connection is fine, nothing here is executed) but never run by
+/// this function itself. `commit_plan` executes the result later.
+pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
+    let mut alloc = PkAllocator::new(conn);
+    let mut create_sql = Vec::new();
+
+    let country_pk = fields
+        .country
+        .as_deref()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZCOUNTRY", "Country", name, &mut create_sql))
+        .transpose()?;
+    let collection_pk = fields
+        .collection
+        .as_deref()
+        .map(|name| resolve_collection_pk(conn, name))
+        .transpose()?;
+
+    let genre_pks = fields
+        .genres
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZGENRE", "Genre", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let studio_pks = fields
+        .studios
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZSTUDIO", "Studio", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let format_pks = fields
+        .formats
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZFORMAT", "Format", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let actor_pks = fields
+        .actors
+        .iter()
+        .map(|name| resolve_or_create_person(conn, &mut alloc, "ZACTOR", "Actor", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let crew_pks = fields
+        .crew
+        .iter()
+        .map(|name| resolve_or_create_person(conn, &mut alloc, "ZCREDITPERSON", "CreditPerson", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+
+    let movie_pk = alloc.next("Collectible")?;
+
+    let mut statements = Vec::new();
+    statements.push("BEGIN;".to_string());
+    statements.extend(create_sql);
+    statements.push(format!(
+        "INSERT INTO ZCOLLECTIBLE (Z_PK, Z_ENT, Z_OPT, ZTITLE, ZTITLEORIGINAL, ZCOUNTRY, \
+         ZCOLLECTION, ZRELEASEYEAR, ZMYRATING, ZNOTES, ZPLOT, ZUPC, ZDATEADDED) \
+         VALUES ({movie_pk}, {ent_movie}, 1, '{title}', {title_original}, {country}, \
+         {collection}, {release_year}, {rating}, {notes}, {plot}, {upc}, {date_added});",
+        ent_movie = ENT_MOVIE,
+        title = sql_escape(&fields.title),
+        title_original = sql_literal(&fields.title_original),
+        country = country_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
+        collection = collection_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
+        release_year = sql_literal(&fields.release_year),
+        rating = fields.rating.map(|r| r.to_string()).unwrap_or_else(|| "NULL".to_string()),
+        notes = sql_literal(&fields.notes),
+        plot = sql_literal(&fields.plot),
+        upc = sql_literal(&fields.upc),
+        date_added = current_core_data_timestamp()?,
+    ));
+
+    // The many-to-many join tables have no Z_PK of their own (just the
+    // two FK columns) — a plain INSERT of the pair, no allocation.
+    for pk in &genre_pks {
+        statements.push(format!(
+            "INSERT INTO Z_20MOVIES (Z_20GENRES, Z_7MOVIES3) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &studio_pks {
+        statements.push(format!(
+            "INSERT INTO Z_7STUDIOS (Z_41STUDIOS, Z_7MOVIES7) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &format_pks {
+        statements.push(format!(
+            "INSERT INTO Z_19MOVIES (Z_19FORMATS, Z_7MOVIES2) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+
+    let cast_ent = entity_id(conn, "Cast")?;
+    for (rank, pk) in actor_pks.iter().enumerate() {
+        let cast_pk = alloc.next("Cast")?;
+        statements.push(format!(
+            "INSERT INTO ZCAST (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZACTOR, ZRANK) \
+             VALUES ({cast_pk}, {cast_ent}, 1, {movie_pk}, {pk}, {rank});"
+        ));
+    }
+
+    let crew_ent = entity_id(conn, "Crew")?;
+    for (rank, pk) in crew_pks.iter().enumerate() {
+        let crew_pk = alloc.next("Crew")?;
+        statements.push(format!(
+            "INSERT INTO ZCREW (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZCREDITPERSON, ZRANK) \
+             VALUES ({crew_pk}, {crew_ent}, 1, {movie_pk}, {pk}, {rank});"
+        ));
+    }
+
+    statements.extend(alloc.finish_sql());
+    statements.push("COMMIT;".to_string());
+
+    Ok(statements.join("\n"))
+}
+
+/// Executes a plan produced by `build_plan` (or any `BEGIN;`/`COMMIT;`
+/// wrapped SQL text) against a writable connection, in one
+/// transaction (SQLite treats a script's own `BEGIN`/`COMMIT` as the
+/// transaction boundary here, so no extra wrapping is needed).
+pub fn commit_plan(conn: &Connection, sql: &str) -> Result<()> {
+    conn.execute_batch(sql)?;
+    Ok(())
+}
+
 /// Refuses to operate on what looks like a real, live Movie Collector
 /// collection — only ever a test/working copy. Same hard rule as the
 /// BookNojo/MusicNojo projects' tools.
@@ -332,6 +681,85 @@ mod tests {
         let conn = open_readonly(&path).unwrap();
         let movies = load_movies(&conn).unwrap();
         assert!(!movies.is_empty());
+    }
+
+    #[test]
+    fn add_movie_round_trip_through_every_relation() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/MyCollection.mvcp");
+        if !source.exists() {
+            eprintln!("skipping: no local testdata/ (run refresh-testdata.sh)");
+            return;
+        }
+        let scratch = std::env::temp_dir().join(format!(
+            "vc_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let dest = scratch.join("MyCollection.mvcp");
+        std::fs::create_dir_all(&scratch).unwrap();
+        copy_dir(&source, &dest).unwrap();
+        // The source copy is read-only (chmod'd by refresh-testdata.sh)
+        // — make this disposable copy writable before using it.
+        for entry in std::fs::read_dir(&dest).unwrap() {
+            let entry = entry.unwrap();
+            let mut perms = entry.metadata().unwrap().permissions();
+            perms.set_readonly(false);
+            std::fs::set_permissions(entry.path(), perms).unwrap();
+        }
+
+        let fields = MovieFields {
+            title: "Round Trip Test Movie".to_string(),
+            release_year: Some("1999".to_string()),
+            rating: Some(5),
+            country: Some("Round Trip Testland".to_string()),
+            genres: vec!["Round Trip Genre".to_string()],
+            studios: vec!["Round Trip Studio".to_string()],
+            actors: vec!["Round Trip Actor".to_string()],
+            crew: vec!["Round Trip Crew".to_string()],
+            ..Default::default()
+        };
+
+        let plan = {
+            let conn = open_readonly(&dest).unwrap();
+            build_plan(&conn, &fields).unwrap()
+        };
+        {
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan).unwrap();
+        }
+
+        let conn = open_readonly(&dest).unwrap();
+        let movies = load_movies(&conn).unwrap();
+        let added = movies
+            .iter()
+            .find(|m| m.title == "Round Trip Test Movie")
+            .expect("newly added movie not found");
+        assert_eq!(added.country.as_deref(), Some("Round Trip Testland"));
+        assert_eq!(added.genres, vec!["Round Trip Genre".to_string()]);
+        assert_eq!(added.studios, vec!["Round Trip Studio".to_string()]);
+        assert_eq!(added.cast.len(), 1);
+        assert_eq!(added.cast[0].name, "Round Trip Actor");
+        assert_eq!(added.crew.len(), 1);
+        assert_eq!(added.crew[0].name, "Round Trip Crew");
+
+        drop(conn);
+        std::fs::remove_dir_all(&scratch).ok();
+    }
+
+    fn copy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(dest)?;
+        for entry in std::fs::read_dir(source)? {
+            let entry = entry?;
+            let dest_path = dest.join(entry.file_name());
+            if entry.file_type()?.is_dir() {
+                copy_dir(&entry.path(), &dest_path)?;
+            } else {
+                std::fs::copy(entry.path(), &dest_path)?;
+            }
+        }
+        Ok(())
     }
 
     #[test]
