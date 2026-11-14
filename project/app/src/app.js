@@ -22,6 +22,37 @@ function collectionLabel(key) {
   return key === DEFAULT_COLLECTION_KEY ? t("collection_default") : key;
 }
 
+// --- session-state persistence --------------------------------------
+// Remembers the open collection, active tab, grouping, and selection
+// across launches — separate from "videonojo_lang" (the language
+// toggle), which persists independently of everything else here.
+function saveState() {
+  try {
+    localStorage.setItem(
+      "videonojo_state",
+      JSON.stringify({
+        path: currentPath,
+        groupField,
+        selectedGroup,
+        currentCollection,
+        search: document.getElementById("search").value,
+        selectedId: currentDetailId,
+      })
+    );
+  } catch {
+    // Unavailable (e.g. private browsing) — just skip persistence.
+  }
+}
+
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem("videonojo_state");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 // --- i18n -----------------------------------------------------------
 // Every user-visible string goes through t() so toggling the language
 // re-renders consistently instead of leaving some parts translated
@@ -237,6 +268,7 @@ function renderTabs() {
       renderTabs();
       renderGroups();
       render(document.getElementById("search").value);
+      saveState();
     })
   );
 }
@@ -279,6 +311,7 @@ function renderGroups() {
       selectedGroup = el.dataset.value || null;
       renderGroups();
       render(document.getElementById("search").value);
+      saveState();
     })
   );
 }
@@ -302,7 +335,10 @@ function render(filterText) {
     )
     .join("");
   tbody.querySelectorAll("tr").forEach((tr) =>
-    tr.addEventListener("click", () => showDetail(Number(tr.dataset.id)))
+    tr.addEventListener("click", () => {
+      showDetail(Number(tr.dataset.id));
+      saveState();
+    })
   );
 }
 
@@ -443,9 +479,29 @@ async function boot() {
     // Non-critical — leave the badge empty.
   }
 
-  await loadCollection(null);
+  const saved = loadSavedState();
+  await loadCollection(saved?.path ?? null);
 
-  document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
+  if (saved) {
+    if (saved.groupField) {
+      groupField = saved.groupField;
+      document.getElementById("group-field").value = groupField;
+    }
+    currentCollection = saved.currentCollection ?? currentCollection;
+    selectedGroup = saved.selectedGroup ?? null;
+    if (saved.search) document.getElementById("search").value = saved.search;
+    renderTabs();
+    renderGroups();
+    render(document.getElementById("search").value);
+    if (saved.selectedId != null && movies.some((m) => m.id === saved.selectedId)) {
+      showDetail(saved.selectedId);
+    }
+  }
+
+  document.getElementById("search").addEventListener("input", (e) => {
+    render(e.target.value);
+    saveState();
+  });
   document.getElementById("open-collection").addEventListener("click", () => invoke("pick_collection"));
   document.getElementById("lang-en").addEventListener("click", () => setLang("en"));
   document.getElementById("lang-fr").addEventListener("click", () => setLang("fr"));
@@ -454,8 +510,11 @@ async function boot() {
     selectedGroup = null;
     renderGroups();
     render(document.getElementById("search").value);
+    saveState();
   });
-  await listen("collection-picked", (event) => loadCollection(event.payload));
+  await listen("collection-picked", (event) => {
+    loadCollection(event.payload).then(saveState);
+  });
 
   const addDialog = document.getElementById("add-movie-dialog");
   const addForm = document.getElementById("add-movie-form");
