@@ -1,0 +1,7 @@
+/target
+/testdata
+/testdata-rw
+# backups/ created by backup_database() before any write (including
+# ones a user might make against the committed sample-collection/
+# while trying the app) — never personal data, just noise to commit.
+**/backups/
