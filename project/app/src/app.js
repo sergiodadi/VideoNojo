@@ -1,7 +1,9 @@
 const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
 
 let movies = [];
 let currentDetailId = null;
+let currentPath = null;
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -72,6 +74,24 @@ function showDetail(id) {
   `;
 }
 
+function fileBadge(path) {
+  const parts = path.split("/").filter(Boolean);
+  const name = parts.pop() || path;
+  const parent = parts.pop() || "";
+  return `${name} — ${parent}`;
+}
+
+async function loadCollection(path) {
+  const resp = await invoke("list_movies", { path });
+  movies = resp.movies;
+  currentPath = resp.path;
+  document.getElementById("file-badge").textContent = fileBadge(resp.path);
+  document.getElementById("detail-content").innerHTML = "";
+  document.getElementById("detail-empty").hidden = false;
+  currentDetailId = null;
+  render(document.getElementById("search").value);
+}
+
 async function boot() {
   try {
     const version = await invoke("app_version");
@@ -80,11 +100,11 @@ async function boot() {
     // Non-critical — leave the badge empty.
   }
 
-  const resp = await invoke("list_movies", { path: null });
-  movies = resp.movies;
-  render("");
+  await loadCollection(null);
 
   document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
+  document.getElementById("open-collection").addEventListener("click", () => invoke("pick_collection"));
+  await listen("collection-picked", (event) => loadCollection(event.payload));
 }
 
 boot();

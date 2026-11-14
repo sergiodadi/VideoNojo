@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use serde::Serialize;
+use tauri::Emitter;
+use tauri_plugin_dialog::DialogExt;
 use video_collector_export::{load_movies, open_readonly, resolve_db_path, Movie};
 
 /// The app's HTML shell has no build step to burn a version string
@@ -76,11 +78,40 @@ fn grant_asset_scope_for_collection<R: tauri::Runtime>(app: &impl tauri::Manager
     }
 }
 
+/// Opens the native file picker for a `.mvcp` collection and, once
+/// one is chosen, emits `"collection-picked"` with its path — the
+/// frontend listens and reloads via `list_movies`. Uses the dialog
+/// plugin's async callback form, never `blocking_*`: a blocking call
+/// from inside a `#[tauri::command]` deadlocks on macOS, since the
+/// native panel needs the main thread and the command runs on a
+/// worker thread.
+///
+/// A file picker, not a folder picker: `.mvcp` is registered with
+/// macOS/LaunchServices as a package (document type) by Movie
+/// Collector itself, so a folder-only picker would grey it out —
+/// `pick_file()` with an extension filter lets it be selected like
+/// any other file.
+#[tauri::command]
+fn pick_collection(app: tauri::AppHandle) {
+    app.dialog()
+        .file()
+        .set_title("Open a Movie Collector collection (.mvcp)")
+        .add_filter("Collection", &["mvcp"])
+        .pick_file(move |file| {
+            let Some(file) = file else { return };
+            let path = match file.as_path() {
+                Some(p) => p.to_string_lossy().to_string(),
+                None => file.to_string(),
+            };
+            let _ = app.emit("collection-picked", path);
+        });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![app_version, list_movies])
+        .invoke_handler(tauri::generate_handler![app_version, list_movies, pick_collection])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }
