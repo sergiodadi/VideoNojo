@@ -3,7 +3,7 @@ use std::path::Path;
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
 use tauri::Emitter;
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
     ensure_not_real_collection, load_movies, open_readonly, open_writable, preview_add_movie,
@@ -15,6 +15,30 @@ use video_collector_export::{
 #[tauri::command]
 fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Only collections produced by this exact Movie Collector release are
+/// known to match the schema this project's SQL targets — same rule
+/// and reasoning as BookNojo's/MusicNojo's own SUPPORTED_*_VERSION.
+const SUPPORTED_MVCP_VERSION: &str = "20.2.2.1";
+
+/// Reads the Movie Collector version that created a `.mvcp` package,
+/// from its own `preferences.plist` (key `kPreferencesApplicationVersion`).
+/// Uses `plutil -extract ... raw` (a single key) rather than
+/// `-convert json`, which is known to fail outright on a real
+/// collection's `preferences.plist` if any other key in it isn't
+/// JSON-representable (confirmed on Book/Music Collector's own files).
+fn mvcp_version(mvcp_dir: &Path) -> Option<String> {
+    let output = std::process::Command::new("plutil")
+        .args(["-extract", "kPreferencesApplicationVersion", "raw", "-o", "-"])
+        .arg(mvcp_dir.join("preferences.plist"))
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version = String::from_utf8(output.stdout).ok()?;
+    Some(version.trim().to_string())
 }
 
 /// Absolute path to the bundled fictional sample collection, used
@@ -104,11 +128,43 @@ fn pick_collection(app: tauri::AppHandle) {
         .add_filter("Collection", &["mvcp"])
         .pick_file(move |file| {
             let Some(file) = file else { return };
-            let path = match file.as_path() {
-                Some(p) => p.to_string_lossy().to_string(),
-                None => file.to_string(),
+            let Some(local_path) = file.as_path() else {
+                let _ = app.emit("collection-picked", file.to_string());
+                return;
             };
-            let _ = app.emit("collection-picked", path);
+
+            // Only a path picked here goes through this check — the
+            // bundled sample-collection (no preferences.plist at all)
+            // is loaded through a different path at boot and never
+            // hits this, same split BookNojo/MusicNojo's own import
+            // dialogs have.
+            match mvcp_version(local_path) {
+                Some(version) if version == SUPPORTED_MVCP_VERSION => {}
+                Some(version) => {
+                    app.dialog()
+                        .message(format!(
+                            "This collection was created with Movie Collector {version}. \
+                             Only version {SUPPORTED_MVCP_VERSION} is supported — opening cancelled."
+                        ))
+                        .title("Unsupported version")
+                        .kind(MessageDialogKind::Error)
+                        .show(|_| {});
+                    return;
+                }
+                None => {
+                    app.dialog()
+                        .message(
+                            "Could not determine which Movie Collector version created this \
+                             collection — opening cancelled as a precaution.",
+                        )
+                        .title("Version could not be verified")
+                        .kind(MessageDialogKind::Error)
+                        .show(|_| {});
+                    return;
+                }
+            }
+
+            let _ = app.emit("collection-picked", local_path.to_string_lossy().to_string());
         });
 }
 
@@ -262,5 +318,13 @@ mod tests {
         let result = list_movies_impl(app.handle(), None).unwrap();
         assert!(!result.movies.is_empty());
         assert!(result.path.contains("sample-collection"));
+    }
+
+    #[test]
+    fn mvcp_version_is_none_without_a_preferences_plist() {
+        // The bundled sample-collection has no preferences.plist at
+        // all (it's never run through this version check — see
+        // pick_collection's own comment on why).
+        assert_eq!(mvcp_version(&sample_collection_path()), None);
     }
 }
