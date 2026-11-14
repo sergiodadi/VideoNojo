@@ -145,6 +145,49 @@ dialog menu button {
   border-radius: 999px;
 }
 
+#tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  overflow-x: auto;
+  background: #f0f2ff;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+#tabs .tab {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  background: #e4e9ff;
+  border: 1px solid #c3d2f7;
+  color: #2e4bb0;
+}
+
+#tabs .tab:hover {
+  background: #dce5fb;
+  border-color: #6a7fe0;
+}
+
+#tabs .tab.active {
+  background: #6a7fe0;
+  border-color: #6a7fe0;
+  color: #fff;
+}
+
+#tabs .tab .n {
+  opacity: 0.75;
+  margin-left: 0.3rem;
+}
+
+#tabs .tab.active .n {
+  opacity: 0.9;
+}
+
 #main {
   flex: 1;
   min-height: 0;

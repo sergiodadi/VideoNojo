@@ -7,6 +7,20 @@ let currentPath = null;
 let groupField = "genres";
 let selectedGroup = null;
 let editingMovieId = null;
+let currentCollection = null;
+
+// A stable (non-translated) key to group/tab by — a movie with no
+// sub-collection set (ZCOLLECTION is nullable) still needs one to
+// live under. Kept separate from the *displayed* label (collectionLabel
+// below) so a language switch can't desync currentCollection from the
+// just-retranslated label it used to match.
+const DEFAULT_COLLECTION_KEY = "__default__";
+function collectionKey(m) {
+  return m.collection || DEFAULT_COLLECTION_KEY;
+}
+function collectionLabel(key) {
+  return key === DEFAULT_COLLECTION_KEY ? t("collection_default") : key;
+}
 
 // --- i18n -----------------------------------------------------------
 // Every user-visible string goes through t() so toggling the language
@@ -22,6 +36,7 @@ const I18N = {
     search_placeholder: "Search by title…",
     count_movies: "{n} movie(s)",
     group_all: "All",
+    collection_default: "My Collection",
     opt_group_genres: "Genre",
     opt_group_studios: "Studio",
     opt_group_formats: "Format",
@@ -72,6 +87,7 @@ const I18N = {
     search_placeholder: "Rechercher par titre…",
     count_movies: "{n} film(s)",
     group_all: "Tous",
+    collection_default: "Ma collection",
     opt_group_genres: "Genre",
     opt_group_studios: "Studio",
     opt_group_formats: "Format",
@@ -145,6 +161,7 @@ function setLang(newLang) {
   lang = newLang;
   localStorage.setItem("videonojo_lang", lang);
   applyStaticLabels();
+  renderTabs();
   renderGroups();
   render(document.getElementById("search").value);
   if (currentDetailId !== null) showDetail(currentDetailId);
@@ -188,9 +205,49 @@ function groupValues(m, f) {
   return f === "country" ? (m.country ? [m.country] : []) : m[f] || [];
 }
 
-function computeGroups() {
+// One tab per sub-collection, largest first, ties broken
+// alphabetically by the *stable* key (not the translated label, so a
+// language switch can't reorder tabs).
+function computeCollections() {
   const counts = new Map();
   for (const m of movies) {
+    const key = collectionKey(m);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function renderTabs() {
+  const collections = computeCollections();
+  if (currentCollection === null || !collections.some(([key]) => key === currentCollection)) {
+    currentCollection = collections.length ? collections[0][0] : null;
+  }
+  document.getElementById("tabs").innerHTML = collections
+    .map(
+      ([key, count]) => `
+      <div class="tab ${key === currentCollection ? "active" : ""}" data-key="${escapeHtml(key)}">
+        ${escapeHtml(collectionLabel(key))} <span class="n">${count}</span>
+      </div>`
+    )
+    .join("");
+  document.querySelectorAll("#tabs .tab").forEach((el) =>
+    el.addEventListener("click", () => {
+      currentCollection = el.dataset.key;
+      selectedGroup = null;
+      renderTabs();
+      renderGroups();
+      render(document.getElementById("search").value);
+    })
+  );
+}
+
+function scopedMovies() {
+  return movies.filter((m) => collectionKey(m) === currentCollection);
+}
+
+function computeGroups() {
+  const counts = new Map();
+  for (const m of scopedMovies()) {
     for (const v of groupValues(m, groupField)) {
       counts.set(v, (counts.get(v) || 0) + 1);
     }
@@ -213,7 +270,7 @@ function renderGroups() {
   document.getElementById("group-list").innerHTML = `
     <div class="group-row ${allClass}" data-value="">
       <span class="group-label">${t("group_all")}</span>
-      <span class="group-count">${movies.length}</span>
+      <span class="group-count">${scopedMovies().length}</span>
     </div>
     ${rows}
   `;
@@ -228,7 +285,7 @@ function renderGroups() {
 
 function render(filterText) {
   const filter = (filterText || "").toLowerCase();
-  const rows = movies
+  const rows = scopedMovies()
     .filter((m) => m.title.toLowerCase().includes(filter))
     .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
   document.getElementById("count").textContent = t("count_movies", { n: rows.length });
@@ -291,10 +348,12 @@ async function loadCollection(path) {
   movies = resp.movies;
   currentPath = resp.path;
   selectedGroup = null;
+  currentCollection = null;
   document.getElementById("file-badge").textContent = fileBadge(resp.path);
   document.getElementById("detail-content").innerHTML = "";
   document.getElementById("detail-empty").hidden = false;
   currentDetailId = null;
+  renderTabs();
   renderGroups();
   render(document.getElementById("search").value);
 }
