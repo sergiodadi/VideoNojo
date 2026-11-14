@@ -363,8 +363,10 @@ pub fn backup_database(db: &Path) -> Result<()> {
 /// of the full schema for now (see MOVIE.md for what's left).
 #[derive(clap::Args, Deserialize, Default)]
 pub struct MovieFields {
+    /// Required to add a movie; omit on edit to leave the title
+    /// unchanged.
     #[arg(long)]
-    pub title: String,
+    pub title: Option<String>,
     #[arg(long)]
     pub title_original: Option<String>,
     #[arg(long)]
@@ -568,6 +570,7 @@ fn resolve_collection_pk(conn: &Connection, name: &str) -> Result<i64> {
 /// connection is fine, nothing here is executed) but never run by
 /// this function itself. `commit_plan` executes the result later.
 pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
+    let title = fields.title.clone().context("title is required to add a movie")?;
     let mut alloc = PkAllocator::new(conn);
     let mut create_sql = Vec::new();
 
@@ -629,7 +632,7 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
          VALUES ({movie_pk}, {ent_movie}, 1, '{title}', {title_original}, {country}, \
          {collection}, {release_year}, {rating}, {notes}, {plot}, {upc}, {date_added});",
         ent_movie = ENT_MOVIE,
-        title = sql_escape(&fields.title),
+        title = sql_escape(&title),
         title_original = sql_literal(&fields.title_original),
         country = country_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
         collection = collection_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
@@ -694,6 +697,151 @@ pub fn commit_plan(conn: &Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
+/// `clap` can't tell "flag omitted" from "list given zero times" on a
+/// repeatable `Vec<String>` — these flags opt an edit into replacing
+/// the corresponding list rather than leaving it untouched, same
+/// convention as Book/Music Collector's own edit commands.
+#[derive(clap::Args, Deserialize, Default)]
+pub struct ReplaceFlags {
+    #[arg(long)]
+    pub replace_genres: bool,
+    #[arg(long)]
+    pub replace_studios: bool,
+    #[arg(long)]
+    pub replace_formats: bool,
+    #[arg(long)]
+    pub replace_actors: bool,
+    #[arg(long)]
+    pub replace_crew: bool,
+}
+
+/// Builds the SQL text to update an existing movie's fields — any
+/// `MovieFields` left `None`/empty is left untouched, except a
+/// many-to-many/role list explicitly opted into replacement via
+/// `replace`. Never creates a new movie, never touches a relation
+/// this project doesn't itself manage (see MOVIE.md's own note on
+/// `delete`'s scope — the same limitation applies here: edit can
+/// replace what it created, not relations like discs/links/tags that
+/// aren't modeled yet).
+pub fn build_edit_plan(conn: &Connection, id: i64, fields: &MovieFields, replace: &ReplaceFlags) -> Result<String> {
+    let mut alloc = PkAllocator::new(conn);
+    let mut statements = vec!["BEGIN;".to_string()];
+
+    let mut set_clauses = Vec::new();
+    if let Some(title) = &fields.title {
+        set_clauses.push(format!("ZTITLE = '{}'", sql_escape(title)));
+    }
+    if let Some(v) = &fields.title_original {
+        set_clauses.push(format!("ZTITLEORIGINAL = '{}'", sql_escape(v)));
+    }
+    if let Some(v) = &fields.release_year {
+        set_clauses.push(format!("ZRELEASEYEAR = '{}'", sql_escape(v)));
+    }
+    if let Some(v) = fields.rating {
+        set_clauses.push(format!("ZMYRATING = {v}"));
+    }
+    if let Some(v) = &fields.notes {
+        set_clauses.push(format!("ZNOTES = '{}'", sql_escape(v)));
+    }
+    if let Some(v) = &fields.plot {
+        set_clauses.push(format!("ZPLOT = '{}'", sql_escape(v)));
+    }
+    if let Some(v) = &fields.upc {
+        set_clauses.push(format!("ZUPC = '{}'", sql_escape(v)));
+    }
+    if let Some(name) = &fields.country {
+        let pk = resolve_or_create_lookup(conn, &mut alloc, "ZCOUNTRY", "Country", name, &mut statements)?;
+        set_clauses.push(format!("ZCOUNTRY = {pk}"));
+    }
+    if let Some(name) = &fields.collection {
+        let pk = resolve_collection_pk(conn, name)?;
+        set_clauses.push(format!("ZCOLLECTION = {pk}"));
+    }
+    if !set_clauses.is_empty() {
+        statements.push(format!(
+            "UPDATE ZCOLLECTIBLE SET {} WHERE Z_PK = {id};",
+            set_clauses.join(", ")
+        ));
+    }
+
+    if replace.replace_genres {
+        statements.push(format!("DELETE FROM Z_20MOVIES WHERE Z_7MOVIES3 = {id};"));
+        for name in &fields.genres {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZGENRE", "Genre", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_20MOVIES (Z_20GENRES, Z_7MOVIES3) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_studios {
+        statements.push(format!("DELETE FROM Z_7STUDIOS WHERE Z_7MOVIES7 = {id};"));
+        for name in &fields.studios {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZSTUDIO", "Studio", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_7STUDIOS (Z_41STUDIOS, Z_7MOVIES7) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_formats {
+        statements.push(format!("DELETE FROM Z_19MOVIES WHERE Z_7MOVIES2 = {id};"));
+        for name in &fields.formats {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZFORMAT", "Format", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_19MOVIES (Z_19FORMATS, Z_7MOVIES2) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_actors {
+        statements.push(format!("DELETE FROM ZCAST WHERE ZMOVIE = {id};"));
+        let cast_ent = entity_id(conn, "Cast")?;
+        for (rank, name) in fields.actors.iter().enumerate() {
+            let pk = resolve_or_create_person(conn, &mut alloc, "ZACTOR", "Actor", name, &mut statements)?;
+            let cast_pk = alloc.next("Cast")?;
+            statements.push(format!(
+                "INSERT INTO ZCAST (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZACTOR, ZRANK) VALUES ({cast_pk}, {cast_ent}, 1, {id}, {pk}, {rank});"
+            ));
+        }
+    }
+    if replace.replace_crew {
+        statements.push(format!("DELETE FROM ZCREW WHERE ZMOVIE = {id};"));
+        let crew_ent = entity_id(conn, "Crew")?;
+        for (rank, entry) in fields.crew.iter().enumerate() {
+            let (name, role_id) = match entry.split_once(':') {
+                Some((name, role)) => (name, role_id_for_label(role)),
+                None => (entry.as_str(), None),
+            };
+            let pk = resolve_or_create_person(conn, &mut alloc, "ZCREDITPERSON", "CreditPerson", name, &mut statements)?;
+            let crew_pk = alloc.next("Crew")?;
+            let role_sql = role_id.map(|r| r.to_string()).unwrap_or_else(|| "NULL".to_string());
+            statements.push(format!(
+                "INSERT INTO ZCREW (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZCREDITPERSON, ZRANK, ZROLEID) VALUES ({crew_pk}, {crew_ent}, 1, {id}, {pk}, {rank}, {role_sql});"
+            ));
+        }
+    }
+
+    statements.extend(alloc.finish_sql());
+    statements.push("COMMIT;".to_string());
+    Ok(statements.join("\n"))
+}
+
+/// Builds the SQL text to delete a movie. Removes the movie's own row
+/// plus every relation this project's own write path creates (cast,
+/// crew, genre/studio/format links) — **not yet** the relations
+/// nothing here models yet (discs, episodes, links, tags, region/
+/// screen-ratio/subtitle/HDR/extra/audio-track links), same
+/// deliberately-documented scope limit as Book/Music Collector's own
+/// delete left for fields they hadn't modeled either. Shared lookup/
+/// person values (a genre, a studio, an actor) are never deleted,
+/// even if this was their only reference — same conservative,
+/// reference-counted-style choice as the other two projects.
+pub fn build_delete_plan(id: i64) -> String {
+    vec![
+        "BEGIN;".to_string(),
+        format!("DELETE FROM ZCAST WHERE ZMOVIE = {id};"),
+        format!("DELETE FROM ZCREW WHERE ZMOVIE = {id};"),
+        format!("DELETE FROM Z_20MOVIES WHERE Z_7MOVIES3 = {id};"),
+        format!("DELETE FROM Z_7STUDIOS WHERE Z_7MOVIES7 = {id};"),
+        format!("DELETE FROM Z_19MOVIES WHERE Z_7MOVIES2 = {id};"),
+        format!("DELETE FROM ZCOLLECTIBLE WHERE Z_PK = {id};"),
+        "COMMIT;".to_string(),
+    ]
+    .join("\n")
+}
+
 /// Refuses to operate on what looks like a real, live Movie Collector
 /// collection — only ever a test/working copy. Same hard rule as the
 /// BookNojo/MusicNojo projects' tools.
@@ -726,12 +874,15 @@ mod tests {
         assert!(!movies.is_empty());
     }
 
-    #[test]
-    fn add_movie_round_trip_through_every_relation() {
+    /// A fresh, disposable, writable copy of `testdata/` in a new temp
+    /// dir, or `None` if `testdata/` isn't present locally (run
+    /// `refresh-testdata.sh`). Caller is responsible for removing the
+    /// returned scratch directory when done.
+    fn fresh_scratch_copy() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
         let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/MyCollection.mvcp");
         if !source.exists() {
             eprintln!("skipping: no local testdata/ (run refresh-testdata.sh)");
-            return;
+            return None;
         }
         let scratch = std::env::temp_dir().join(format!(
             "vc_test_{}",
@@ -751,9 +902,17 @@ mod tests {
             perms.set_readonly(false);
             std::fs::set_permissions(entry.path(), perms).unwrap();
         }
+        Some((scratch, dest))
+    }
+
+    #[test]
+    fn add_movie_round_trip_through_every_relation() {
+        let Some((scratch, dest)) = fresh_scratch_copy() else {
+            return;
+        };
 
         let fields = MovieFields {
-            title: "Round Trip Test Movie".to_string(),
+            title: Some("Round Trip Test Movie".to_string()),
             release_year: Some("1999".to_string()),
             rating: Some(5),
             country: Some("Round Trip Testland".to_string()),
@@ -787,6 +946,126 @@ mod tests {
         assert_eq!(added.crew.len(), 1);
         assert_eq!(added.crew[0].name, "Round Trip Crew");
         assert_eq!(added.crew[0].role.as_deref(), Some("Director"));
+
+        drop(conn);
+        std::fs::remove_dir_all(&scratch).ok();
+    }
+
+    #[test]
+    fn edit_movie_updates_fields_and_can_replace_lists() {
+        let Some((scratch, dest)) = fresh_scratch_copy() else {
+            return;
+        };
+
+        let add_fields = MovieFields {
+            title: Some("Edit Target Movie".to_string()),
+            genres: vec!["Edit Original Genre".to_string()],
+            ..Default::default()
+        };
+        let id = {
+            let conn = open_readonly(&dest).unwrap();
+            let plan = build_plan(&conn, &add_fields).unwrap();
+            drop(conn);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan).unwrap();
+            drop(conn);
+            let conn = open_readonly(&dest).unwrap();
+            load_movies(&conn)
+                .unwrap()
+                .into_iter()
+                .find(|m| m.title == "Edit Target Movie")
+                .unwrap()
+                .id
+        };
+
+        let edit_fields = MovieFields {
+            title: Some("Edit Target Movie (renamed)".to_string()),
+            rating: Some(3),
+            genres: vec!["Edit Replacement Genre".to_string()],
+            ..Default::default()
+        };
+        let replace = ReplaceFlags {
+            replace_genres: true,
+            ..Default::default()
+        };
+        {
+            let conn = open_readonly(&dest).unwrap();
+            let plan = build_edit_plan(&conn, id, &edit_fields, &replace).unwrap();
+            drop(conn);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan).unwrap();
+        }
+
+        let conn = open_readonly(&dest).unwrap();
+        let movies = load_movies(&conn).unwrap();
+        let edited = movies.iter().find(|m| m.id == id).unwrap();
+        assert_eq!(edited.title, "Edit Target Movie (renamed)");
+        assert_eq!(edited.rating, Some(3));
+        assert_eq!(edited.genres, vec!["Edit Replacement Genre".to_string()]);
+
+        drop(conn);
+        std::fs::remove_dir_all(&scratch).ok();
+    }
+
+    #[test]
+    fn delete_movie_removes_only_its_own_rows() {
+        let Some((scratch, dest)) = fresh_scratch_copy() else {
+            return;
+        };
+
+        // Two movies sharing one genre — deleting one must not delete
+        // the shared genre value or the other movie.
+        let shared_genre = "Delete Test Shared Genre".to_string();
+        let (keep_id, delete_id) = {
+            let conn = open_readonly(&dest).unwrap();
+            let plan_a = build_plan(
+                &conn,
+                &MovieFields {
+                    title: Some("Delete Test Keep".to_string()),
+                    genres: vec![shared_genre.clone()],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            drop(conn);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan_a).unwrap();
+            drop(conn);
+
+            let conn = open_readonly(&dest).unwrap();
+            let plan_b = build_plan(
+                &conn,
+                &MovieFields {
+                    title: Some("Delete Test Remove".to_string()),
+                    genres: vec![shared_genre.clone()],
+                    actors: vec!["Delete Test Actor".to_string()],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            drop(conn);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan_b).unwrap();
+            drop(conn);
+
+            let conn = open_readonly(&dest).unwrap();
+            let movies = load_movies(&conn).unwrap();
+            let keep = movies.iter().find(|m| m.title == "Delete Test Keep").unwrap().id;
+            let remove = movies.iter().find(|m| m.title == "Delete Test Remove").unwrap().id;
+            (keep, remove)
+        };
+
+        {
+            let plan = build_delete_plan(delete_id);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan).unwrap();
+        }
+
+        let conn = open_readonly(&dest).unwrap();
+        let movies = load_movies(&conn).unwrap();
+        assert!(!movies.iter().any(|m| m.id == delete_id));
+        let kept = movies.iter().find(|m| m.id == keep_id).unwrap();
+        assert_eq!(kept.genres, vec![shared_genre]);
 
         drop(conn);
         std::fs::remove_dir_all(&scratch).ok();
