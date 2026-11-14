@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VideoNojo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>VideoNojo</h1>
+    <input id="search" type="search" placeholder="Search by title…" autofocus />
+    <span id="count"></span>
+    <span id="app-version"></span>
+  </header>
+  <main id="main">
+    <table id="movies">
+      <thead>
+        <tr>
+          <th data-k="title">Title</th>
+          <th data-k="release_year">Year</th>
+          <th data-k="country">Country</th>
+          <th data-k="genres">Genre(s)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <aside id="detail">
+      <p id="detail-empty">Select a movie.</p>
+      <div id="detail-content"></div>
+    </aside>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
