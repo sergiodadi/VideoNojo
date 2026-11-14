@@ -17,10 +17,41 @@ pub const ENT_MOVIE: i64 = 7;
 #[derive(Serialize, Clone)]
 pub struct Credit {
     pub name: String,
-    // ZCREW.ZROLEID: no label exists anywhere in Movie_data itself —
-    // left unresolved, not guessed. Same situation as Book/Music
-    // Collector's own generic-credit role id.
-    pub role_id: Option<i64>,
+    pub role: Option<String>,
+}
+
+/// `ZCREW.ZROLEID`'s label, confirmed directly (role id 1 = Director,
+/// 2 = Producer, 3 = Writer, 4 = Camera, 5 = Music, 6 = User Credit 1,
+/// 7 = User Credit 2, 8 = Actor). No label exists for this anywhere in
+/// `Movie_data` itself.
+fn role_label(role_id: i64) -> Option<&'static str> {
+    match role_id {
+        1 => Some("Director"),
+        2 => Some("Producer"),
+        3 => Some("Writer"),
+        4 => Some("Camera"),
+        5 => Some("Music"),
+        6 => Some("User Credit 1"),
+        7 => Some("User Credit 2"),
+        8 => Some("Actor"),
+        _ => None,
+    }
+}
+
+/// The inverse of `role_label`, case-insensitive — used by the write
+/// path to turn a role name back into the id `ZCREW.ZROLEID` stores.
+fn role_id_for_label(label: &str) -> Option<i64> {
+    match label.to_lowercase().as_str() {
+        "director" => Some(1),
+        "producer" => Some(2),
+        "writer" => Some(3),
+        "camera" => Some(4),
+        "music" => Some(5),
+        "user credit 1" | "usercredit1" => Some(6),
+        "user credit 2" | "usercredit2" => Some(7),
+        "actor" => Some(8),
+        _ => None,
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -233,7 +264,7 @@ fn load_crew(conn: &Connection, lookups: &Lookups) -> Result<HashMap<i64, Vec<Cr
         };
         map.entry(movie_pk).or_default().push(Credit {
             name: name.clone(),
-            role_id,
+            role: role_id.and_then(role_label).map(str::to_string),
         });
     }
     Ok(map)
@@ -571,10 +602,20 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
         .iter()
         .map(|name| resolve_or_create_person(conn, &mut alloc, "ZACTOR", "Actor", name, &mut create_sql))
         .collect::<Result<Vec<_>>>()?;
-    let crew_pks = fields
+    // Each entry is "Name" or "Name:Role" (e.g. "Jane Doe:Director") —
+    // the role is optional since most crew credits in practice don't
+    // need one beyond the person's name.
+    let crew_entries: Vec<(&str, Option<i64>)> = fields
         .crew
         .iter()
-        .map(|name| resolve_or_create_person(conn, &mut alloc, "ZCREDITPERSON", "CreditPerson", name, &mut create_sql))
+        .map(|entry| match entry.split_once(':') {
+            Some((name, role)) => (name, role_id_for_label(role)),
+            None => (entry.as_str(), None),
+        })
+        .collect();
+    let crew_pks = crew_entries
+        .iter()
+        .map(|(name, _)| resolve_or_create_person(conn, &mut alloc, "ZCREDITPERSON", "CreditPerson", name, &mut create_sql))
         .collect::<Result<Vec<_>>>()?;
 
     let movie_pk = alloc.next("Collectible")?;
@@ -630,9 +671,11 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
     let crew_ent = entity_id(conn, "Crew")?;
     for (rank, pk) in crew_pks.iter().enumerate() {
         let crew_pk = alloc.next("Crew")?;
+        let role_id = crew_entries[rank].1;
+        let role_sql = role_id.map(|r| r.to_string()).unwrap_or_else(|| "NULL".to_string());
         statements.push(format!(
-            "INSERT INTO ZCREW (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZCREDITPERSON, ZRANK) \
-             VALUES ({crew_pk}, {crew_ent}, 1, {movie_pk}, {pk}, {rank});"
+            "INSERT INTO ZCREW (Z_PK, Z_ENT, Z_OPT, ZMOVIE, ZCREDITPERSON, ZRANK, ZROLEID) \
+             VALUES ({crew_pk}, {crew_ent}, 1, {movie_pk}, {pk}, {rank}, {role_sql});"
         ));
     }
 
@@ -717,7 +760,7 @@ mod tests {
             genres: vec!["Round Trip Genre".to_string()],
             studios: vec!["Round Trip Studio".to_string()],
             actors: vec!["Round Trip Actor".to_string()],
-            crew: vec!["Round Trip Crew".to_string()],
+            crew: vec!["Round Trip Crew:Director".to_string()],
             ..Default::default()
         };
 
@@ -743,6 +786,7 @@ mod tests {
         assert_eq!(added.cast[0].name, "Round Trip Actor");
         assert_eq!(added.crew.len(), 1);
         assert_eq!(added.crew[0].name, "Round Trip Crew");
+        assert_eq!(added.crew[0].role.as_deref(), Some("Director"));
 
         drop(conn);
         std::fs::remove_dir_all(&scratch).ok();
