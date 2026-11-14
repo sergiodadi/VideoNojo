@@ -1,6 +1,78 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+// --- resizable panes -------------------------------------------------
+// #splitter-v resizes the groups sidebar's width, #splitter-h resizes
+// the list pane's height (the detail pane below it just takes
+// whatever's left, via flex: 1 1 auto). Sizes persist in localStorage
+// ("videonojo_layout"), separate from "videonojo_state"/"videonojo_lang".
+function loadLayout() {
+  try {
+    const raw = localStorage.getItem("videonojo_layout");
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLayout(layout) {
+  try {
+    localStorage.setItem("videonojo_layout", JSON.stringify(layout));
+  } catch {
+    // Unavailable — just skip persistence.
+  }
+}
+
+function makeDraggable(handle, { onDrag, onEnd }) {
+  let dragging = false;
+  handle.addEventListener("mousedown", (e) => {
+    dragging = true;
+    handle.classList.add("dragging");
+    e.preventDefault();
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    onDrag(e);
+  });
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+    onEnd();
+  });
+}
+
+function setupResizablePanes() {
+  const layout = loadLayout();
+  const groupsEl = document.getElementById("groups");
+  const listPaneEl = document.getElementById("list-pane");
+
+  if (layout.groupsWidth) groupsEl.style.flexBasis = `${layout.groupsWidth}px`;
+  if (layout.listHeight) listPaneEl.style.flexBasis = `${layout.listHeight}px`;
+
+  makeDraggable(document.getElementById("splitter-v"), {
+    onDrag: (e) => {
+      const mainRect = document.getElementById("main").getBoundingClientRect();
+      const width = Math.min(Math.max(e.clientX - mainRect.left, 140), mainRect.width - 300);
+      groupsEl.style.flexBasis = `${width}px`;
+    },
+    onEnd: () => {
+      saveLayout({ ...loadLayout(), groupsWidth: groupsEl.getBoundingClientRect().width });
+    },
+  });
+
+  makeDraggable(document.getElementById("splitter-h"), {
+    onDrag: (e) => {
+      const colRect = document.getElementById("right-col").getBoundingClientRect();
+      const height = Math.min(Math.max(e.clientY - colRect.top, 100), colRect.height - 150);
+      listPaneEl.style.flexBasis = `${height}px`;
+    },
+    onEnd: () => {
+      saveLayout({ ...loadLayout(), listHeight: listPaneEl.getBoundingClientRect().height });
+    },
+  });
+}
+
 let movies = [];
 let currentDetailId = null;
 let currentPath = null;
@@ -499,6 +571,7 @@ async function deleteMovieWithConfirm(m) {
 
 async function boot() {
   applyStaticLabels();
+  setupResizablePanes();
 
   try {
     const version = await invoke("app_version");

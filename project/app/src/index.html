@@ -30,18 +30,22 @@
       </select>
       <div id="group-list"></div>
     </aside>
+    <div id="splitter-v" title="Drag to resize"></div>
     <div id="right-col">
-      <table id="movies">
-        <thead>
-          <tr>
-            <th data-k="title" data-i18n="col_title">Title</th>
-            <th data-k="release_year" data-i18n="col_year">Year</th>
-            <th data-k="country" data-i18n="col_country">Country</th>
-            <th data-k="genres" data-i18n="col_genres">Genre(s)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div id="list-pane">
+        <table id="movies">
+          <thead>
+            <tr>
+              <th data-k="title" data-i18n="col_title">Title</th>
+              <th data-k="release_year" data-i18n="col_year">Year</th>
+              <th data-k="country" data-i18n="col_country">Country</th>
+              <th data-k="genres" data-i18n="col_genres">Genre(s)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="splitter-h" title="Drag to resize"></div>
       <aside id="detail">
         <p id="detail-empty" data-i18n="detail_select">Select a movie.</p>
         <div id="detail-content"></div>

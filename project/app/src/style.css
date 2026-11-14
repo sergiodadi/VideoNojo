@@ -196,12 +196,22 @@ dialog menu button {
 }
 
 #groups {
-  width: 220px;
-  flex-shrink: 0;
+  flex: 0 0 220px;
+  min-width: 140px;
   padding: 0.75rem;
   overflow-y: auto;
-  border-right: 1px solid #ddd;
   background: #fafafa;
+}
+
+#splitter-v {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: #eee;
+}
+
+#splitter-v:hover,
+#splitter-v.dragging {
+  background: #6a7fe0;
 }
 
 #group-field {
@@ -244,14 +254,32 @@ dialog menu button {
   flex: 1;
   min-width: 0;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-#movies {
-  flex: 1;
+#list-pane {
+  /* ~5 rows + header by default — the detail pane below gets most of
+     the space until the user drags #splitter-h to show more. */
+  flex: 0 0 240px;
+  min-height: 100px;
   overflow-y: auto;
+}
+
+#movies {
   border-collapse: collapse;
   width: 100%;
+}
+
+#splitter-h {
+  flex: 0 0 5px;
+  cursor: row-resize;
+  background: #eee;
+}
+
+#splitter-h:hover,
+#splitter-h.dragging {
+  background: #6a7fe0;
 }
 
 #movies th {
@@ -274,11 +302,10 @@ dialog menu button {
 }
 
 #detail {
-  width: 320px;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-height: 100px;
   padding: 1rem;
   overflow-y: auto;
-  border-left: 1px solid #ddd;
   background: #fafafa;
 }
 
