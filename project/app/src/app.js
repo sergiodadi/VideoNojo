@@ -379,6 +379,33 @@ function fileBadge(path) {
   return `${name} — ${parent}`;
 }
 
+// Each entry's values come from the currently loaded collection's own
+// data — only helps the first value typed in a comma-separated
+// multi-value field (a real chip-style input would be needed for
+// more, out of scope here, same limit as BookNojo/MusicNojo's own
+// first autocomplete pass).
+const DATALIST_FIELDS = [
+  { datalist: "dl-country", values: (m) => (m.country ? [m.country] : []) },
+  { datalist: "dl-genres", values: (m) => m.genres || [] },
+  { datalist: "dl-studios", values: (m) => m.studios || [] },
+  { datalist: "dl-formats", values: (m) => m.formats || [] },
+  { datalist: "dl-actors", values: (m) => (m.cast || []).map((c) => c.name) },
+  { datalist: "dl-crew", values: (m) => (m.crew || []).map((c) => c.name) },
+];
+
+function populateDatalists() {
+  for (const { datalist, values } of DATALIST_FIELDS) {
+    const distinct = new Set();
+    for (const m of movies) {
+      for (const v of values(m)) distinct.add(v);
+    }
+    document.getElementById(datalist).innerHTML = [...distinct]
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => `<option value="${escapeHtml(v)}"></option>`)
+      .join("");
+  }
+}
+
 async function loadCollection(path) {
   const resp = await invoke("list_movies", { path });
   movies = resp.movies;
@@ -392,6 +419,7 @@ async function loadCollection(path) {
   renderTabs();
   renderGroups();
   render(document.getElementById("search").value);
+  populateDatalists();
 }
 
 function listFromCsv(s) {
