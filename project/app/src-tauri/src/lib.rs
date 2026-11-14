@@ -10,11 +10,23 @@ use video_collector_export::{
     resolve_db_path, AddMoviePreview, Movie, MovieFields, ReplaceFlags,
 };
 
+/// The version shown to the user (header badge, both "About
+/// VideoNojo" surfaces), deliberately *not* `CARGO_PKG_VERSION` —
+/// `Cargo.toml`'s version bumps on every single internal commit,
+/// while this is meant to track the latest published `.dmg` release
+/// tag once one exists (see MOVIE.md § 2.8/§ 6 — MusicNojo got this
+/// wrong twice: once by not having the constant at all, once by
+/// forgetting to bump it before building a new release). No release
+/// has been cut yet, so this currently just mirrors the dev version —
+/// **update this by hand at every future release**, before building
+/// that release's `.dmg`, not after.
+const DISPLAY_VERSION: &str = "0.16.0";
+
 /// The app's HTML shell has no build step to burn a version string
 /// into it, so the frontend asks for it over IPC instead.
 #[tauri::command]
 fn app_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
+    DISPLAY_VERSION.to_string()
 }
 
 /// Only collections produced by this exact Movie Collector release are
@@ -225,7 +237,17 @@ fn delete_movie(path: String, id: i64) -> Result<(), String> {
 fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "VideoNojo")
-        .about(None)
+        .about(Some(tauri::menu::AboutMetadata {
+            // Overrides the bundle's own CFBundleShortVersionString/
+            // CFBundleVersion (still CARGO_PKG_VERSION/Cargo.toml's
+            // per-commit dev version) with DISPLAY_VERSION — the
+            // native About panel is a separate surface from the
+            // custom dialog below, driven by the bundle's own Info.plist
+            // fields rather than any Rust command, so both need fixing.
+            version: Some(DISPLAY_VERSION.to_string()),
+            short_version: Some(DISPLAY_VERSION.to_string()),
+            ..Default::default()
+        }))
         .separator()
         .hide()
         .hide_others()
@@ -298,7 +320,7 @@ pub fn run() {
             "open_collection" => pick_collection(app.clone()),
             "about_videonojo" => {
                 app.dialog()
-                    .message(format!("VideoNojo\nVersion {}", env!("CARGO_PKG_VERSION")))
+                    .message(format!("VideoNojo\nVersion {}", DISPLAY_VERSION))
                     .title("About VideoNojo")
                     .show(|_| {});
             }
