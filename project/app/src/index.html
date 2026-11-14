@@ -45,7 +45,7 @@
   </main>
   <dialog id="add-movie-dialog">
     <form id="add-movie-form" method="dialog">
-      <h2>Add Movie</h2>
+      <h2 id="add-movie-dialog-title">Add Movie</h2>
       <label>Title <input name="title" required /></label>
       <label>Release year <input name="release_year" /></label>
       <label>Rating (0–5) <input name="rating" type="number" min="0" max="5" /></label>
@@ -60,7 +60,7 @@
       <div id="add-movie-error" class="error"></div>
       <menu>
         <button type="button" id="add-movie-cancel">Cancel</button>
-        <button type="submit">Next…</button>
+        <button type="submit" id="add-movie-submit">Next…</button>
       </menu>
     </form>
   </dialog>

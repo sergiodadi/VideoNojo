@@ -238,3 +238,16 @@ dialog menu button {
 #detail-content dd {
   margin: 0;
 }
+
+.detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+}
+
+.detail-actions button {
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}

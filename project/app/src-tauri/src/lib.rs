@@ -4,9 +4,9 @@ use serde::Serialize;
 use tauri::Emitter;
 use tauri_plugin_dialog::DialogExt;
 use video_collector_export::{
-    backup_database, build_plan, commit_plan, ensure_not_real_collection, load_movies,
-    open_readonly, open_writable, preview_add_movie, resolve_db_path, AddMoviePreview, Movie,
-    MovieFields,
+    backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
+    ensure_not_real_collection, load_movies, open_readonly, open_writable, preview_add_movie,
+    resolve_db_path, AddMoviePreview, Movie, MovieFields, ReplaceFlags,
 };
 
 /// The app's HTML shell has no build step to burn a version string
@@ -136,6 +136,35 @@ fn add_movie(path: String, fields: MovieFields) -> Result<(), String> {
     commit_plan(&conn, &plan).map_err(|e| e.to_string())
 }
 
+/// Writes changes to an existing movie — same real-collection refusal
+/// and pre-write backup as `add_movie`. No preview step (same scope
+/// as BookNojo/MusicNojo's own Edit, which also writes directly).
+#[tauri::command]
+fn edit_movie(path: String, id: i64, fields: MovieFields, replace: ReplaceFlags) -> Result<(), String> {
+    let path = Path::new(&path);
+    ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    backup_database(path).map_err(|e| e.to_string())?;
+    let plan = {
+        let conn = open_readonly(path).map_err(|e| e.to_string())?;
+        build_edit_plan(&conn, id, &fields, &replace).map_err(|e| e.to_string())?
+    };
+    let conn = open_writable(path).map_err(|e| e.to_string())?;
+    commit_plan(&conn, &plan).map_err(|e| e.to_string())
+}
+
+/// Deletes a movie — same real-collection refusal and pre-write
+/// backup as `add_movie`/`edit_movie`. See `build_delete_plan`'s own
+/// doc comment for exactly what is and isn't cleaned up.
+#[tauri::command]
+fn delete_movie(path: String, id: i64) -> Result<(), String> {
+    let path = Path::new(&path);
+    ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    backup_database(path).map_err(|e| e.to_string())?;
+    let plan = build_delete_plan(id);
+    let conn = open_writable(path).map_err(|e| e.to_string())?;
+    commit_plan(&conn, &plan).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -145,7 +174,9 @@ pub fn run() {
             list_movies,
             pick_collection,
             prepare_add_movie,
-            add_movie
+            add_movie,
+            edit_movie,
+            delete_movie
         ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

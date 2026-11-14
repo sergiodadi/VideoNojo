@@ -6,6 +6,7 @@ let currentDetailId = null;
 let currentPath = null;
 let groupField = "genres";
 let selectedGroup = null;
+let editingMovieId = null;
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -29,6 +30,13 @@ function creditList(label, credits) {
   if (!credits || !credits.length) return "";
   const text = credits.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)).join(", ");
   return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
+}
+
+// The inverse of fieldsFromAddForm's "Name" / "Name:Role" crew entry
+// parsing — used to pre-fill the edit form from a loaded movie's
+// already-resolved crew list.
+function creditsToInputValue(credits) {
+  return (credits || []).map((c) => (c.role ? `${c.name}:${c.role}` : c.name)).join(", ");
 }
 
 // Country is a single value, the others are repeatable lists — both
@@ -120,7 +128,13 @@ function showDetail(id) {
       ${field("Plot", m.plot)}
       ${field("Date added", m.date_added)}
     </dl>
+    <div class="detail-actions">
+      <button id="detail-edit">Edit…</button>
+      <button id="detail-delete">Delete…</button>
+    </div>
   `;
+  document.getElementById("detail-edit").addEventListener("click", () => openEditForm(m));
+  document.getElementById("detail-delete").addEventListener("click", () => deleteMovieWithConfirm(m));
 }
 
 function fileBadge(path) {
@@ -187,6 +201,39 @@ function showAddPreview(preview) {
   document.getElementById("add-preview-dialog").showModal();
 }
 
+function openEditForm(m) {
+  editingMovieId = m.id;
+  const addDialog = document.getElementById("add-movie-dialog");
+  const addForm = document.getElementById("add-movie-form");
+  addForm.reset();
+  addForm.elements.title.value = m.title || "";
+  addForm.elements.release_year.value = m.release_year || "";
+  addForm.elements.rating.value = m.rating ?? "";
+  addForm.elements.country.value = m.country || "";
+  addForm.elements.genres.value = (m.genres || []).join(", ");
+  addForm.elements.studios.value = (m.studios || []).join(", ");
+  addForm.elements.formats.value = (m.formats || []).join(", ");
+  addForm.elements.actors.value = (m.cast || []).map((c) => c.name).join(", ");
+  addForm.elements.crew.value = creditsToInputValue(m.crew);
+  addForm.elements.plot.value = m.plot || "";
+  addForm.elements.notes.value = m.notes || "";
+  document.getElementById("add-movie-dialog-title").textContent = `Edit: ${m.title}`;
+  document.getElementById("add-movie-submit").textContent = "Save changes";
+  document.getElementById("add-movie-error").textContent = "";
+  addDialog.showModal();
+}
+
+async function deleteMovieWithConfirm(m) {
+  // tauri-plugin-dialog patches window.confirm to route through the
+  // native dialog — the patched version is async (a Promise), never
+  // the synchronous browser primitive, so this must be awaited or the
+  // condition below is always truthy regardless of what's clicked.
+  const confirmed = await window.confirm(`Delete "${m.title}"? This cannot be undone.`);
+  if (!confirmed) return;
+  await invoke("delete_movie", { path: currentPath, id: m.id });
+  await loadCollection(currentPath);
+}
+
 async function boot() {
   try {
     const version = await invoke("app_version");
@@ -212,7 +259,10 @@ async function boot() {
   const previewDialog = document.getElementById("add-preview-dialog");
 
   document.getElementById("add-movie").addEventListener("click", () => {
+    editingMovieId = null;
     addForm.reset();
+    document.getElementById("add-movie-dialog-title").textContent = "Add Movie";
+    document.getElementById("add-movie-submit").textContent = "Next…";
     document.getElementById("add-movie-error").textContent = "";
     addDialog.showModal();
   });
@@ -222,10 +272,25 @@ async function boot() {
     e.preventDefault();
     const fields = fieldsFromAddForm(addForm);
     try {
-      pendingAddFields = fields;
-      const preview = await invoke("prepare_add_movie", { path: currentPath, fields });
-      addDialog.close();
-      showAddPreview(preview);
+      if (editingMovieId !== null) {
+        // No preview for Edit — same scope as BookNojo/MusicNojo's own
+        // Edit, which also writes directly once submitted.
+        const replace = {
+          replace_genres: true,
+          replace_studios: true,
+          replace_formats: true,
+          replace_actors: true,
+          replace_crew: true,
+        };
+        await invoke("edit_movie", { path: currentPath, id: editingMovieId, fields, replace });
+        addDialog.close();
+        await loadCollection(currentPath);
+      } else {
+        pendingAddFields = fields;
+        const preview = await invoke("prepare_add_movie", { path: currentPath, fields });
+        addDialog.close();
+        showAddPreview(preview);
+      }
     } catch (err) {
       document.getElementById("add-movie-error").textContent = String(err);
     }
