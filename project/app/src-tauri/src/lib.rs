@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use serde::Serialize;
+use tauri::menu::{MenuBuilder, SubmenuBuilder};
 use tauri::Emitter;
 use tauri_plugin_dialog::DialogExt;
 use video_collector_export::{
@@ -165,6 +166,60 @@ fn delete_movie(path: String, id: i64) -> Result<(), String> {
     commit_plan(&conn, &plan).map_err(|e| e.to_string())
 }
 
+fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    #[cfg(target_os = "macos")]
+    let app_menu = SubmenuBuilder::new(app, "VideoNojo")
+        .about(None)
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+    let file_menu = SubmenuBuilder::new(app, "File")
+        .text("open_collection", "Open Collection…")
+        .separator()
+        .close_window()
+        .build()?;
+
+    let edit_menu = SubmenuBuilder::new(app, "Edit")
+        .undo()
+        .redo()
+        .separator()
+        .cut()
+        .copy()
+        .paste()
+        .select_all()
+        .build()?;
+
+    let window_menu = SubmenuBuilder::new(app, "Window")
+        .minimize()
+        .separator()
+        .close_window()
+        .build()?;
+
+    // A submenu titled exactly "Help" is silently swallowed on macOS by
+    // this Tauri version — "VideoNojo Help" sidesteps it, same
+    // finding/workaround as BookNojo/MusicNojo's own menu.
+    let help_menu = SubmenuBuilder::new(app, "VideoNojo Help")
+        .text("about_videonojo", "About VideoNojo")
+        .build()?;
+
+    let mut builder = MenuBuilder::new(app);
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.item(&app_menu);
+    }
+    builder
+        .item(&file_menu)
+        .item(&edit_menu)
+        .item(&window_menu)
+        .item(&help_menu)
+        .build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -178,6 +233,21 @@ pub fn run() {
             edit_movie,
             delete_movie
         ])
+        .setup(|app| {
+            let menu = build_menu(app.handle())?;
+            app.set_menu(menu)?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open_collection" => pick_collection(app.clone()),
+            "about_videonojo" => {
+                app.dialog()
+                    .message(format!("VideoNojo\nVersion {}", env!("CARGO_PKG_VERSION")))
+                    .title("About VideoNojo")
+                    .show(|_| {});
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }
