@@ -13,14 +13,13 @@ use video_collector_export::{
 /// The version shown to the user (header badge, both "About
 /// VideoNojo" surfaces), deliberately *not* `CARGO_PKG_VERSION` —
 /// `Cargo.toml`'s version bumps on every single internal commit,
-/// while this is meant to track the latest published `.dmg` release
-/// tag once one exists (see MOVIE.md § 2.8/§ 6 — MusicNojo got this
-/// wrong twice: once by not having the constant at all, once by
-/// forgetting to bump it before building a new release). No release
-/// has been cut yet, so this currently just mirrors the dev version —
-/// **update this by hand at every future release**, before building
-/// that release's `.dmg`, not after.
-const DISPLAY_VERSION: &str = "0.16.0";
+/// while this tracks the latest published `.dmg` release tag instead
+/// (see MOVIE.md § 2.8/§ 6/§ 8 — MusicNojo got this wrong twice: once
+/// by not having the constant at all, once by forgetting to bump it
+/// before building a new release). Set to the v1.0.0b1 tag **before**
+/// building that release's `.dmg`, not after — **update this by hand
+/// at every future release** the same way.
+const DISPLAY_VERSION: &str = "1.0.0b1";
 
 /// The app's HTML shell has no build step to burn a version string
 /// into it, so the frontend asks for it over IPC instead.
