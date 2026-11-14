@@ -961,6 +961,343 @@ pub fn ensure_not_real_collection(path: &Path) -> Result<()> {
     Ok(())
 }
 
+// A JSON-serializable shape close to `Movie`, but with `front_cover`
+// resolved to an absolute `file://` URL (or omitted) instead of a bare
+// filename — the live Tauri app resolves that itself via its asset
+// protocol, but a standalone HTML file has no such mechanism.
+#[derive(Serialize)]
+struct HtmlMovie<'a> {
+    id: i64,
+    title: &'a str,
+    title_original: &'a Option<String>,
+    cast: &'a [CastMember],
+    crew: &'a [Credit],
+    genres: &'a [String],
+    studios: &'a [String],
+    formats: &'a [String],
+    country: &'a Option<String>,
+    collection: &'a Option<String>,
+    date_added: &'a Option<String>,
+    release_year: &'a Option<String>,
+    rating: Option<i64>,
+    notes: &'a Option<String>,
+    plot: &'a Option<String>,
+    front_cover_url: Option<String>,
+}
+
+// A `file://` URL needs an absolute path and percent-encoding of
+// anything outside the unreserved set — same helper/lesson as
+// MusicNojo's own static export (found via a screenshot of its very
+// first generated page: a relative `--db` path silently produced a
+// broken image, `file://sample-collection/...` parsing as host
+// "sample-collection" with an empty path).
+fn file_url(path: &str) -> String {
+    const UNRESERVED: &[u8] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+    let mut out = String::from("file://");
+    for byte in path.bytes() {
+        if byte == b'/' || UNRESERVED.contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+/// Writes a standalone, read-only HTML page replicating the live
+/// app's current feature set: search, sub-collection tabs, a
+/// group-by sidebar (genre/studio/format/country), a list on top and
+/// a detail card below it. No add/edit/delete, A-Z bar, sort, grid
+/// view, pagination or stats panel — the live app doesn't have those
+/// yet either, so the export doesn't invent them.
+pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()> {
+    let images_dir_abs = images_dir.canonicalize().unwrap_or_else(|_| images_dir.to_path_buf());
+    let images_dir_str = images_dir_abs.to_string_lossy();
+    let html_movies: Vec<HtmlMovie> = movies
+        .iter()
+        .map(|m| HtmlMovie {
+            id: m.id,
+            title: &m.title,
+            title_original: &m.title_original,
+            cast: &m.cast,
+            crew: &m.crew,
+            genres: &m.genres,
+            studios: &m.studios,
+            formats: &m.formats,
+            country: &m.country,
+            collection: &m.collection,
+            date_added: &m.date_added,
+            release_year: &m.release_year,
+            rating: m.rating,
+            notes: &m.notes,
+            plot: &m.plot,
+            front_cover_url: m
+                .front_cover
+                .as_deref()
+                .map(|f| file_url(&format!("{images_dir_str}/{f}"))),
+        })
+        .collect();
+    // Escaped so a title/plot containing "</script>" can't break out
+    // of the embedding <script> tag.
+    let data_json = serde_json::to_string(&html_movies)?.replace("</", "<\\/");
+
+    let html = format!(
+        r##"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VideoNojo — Collection</title>
+<style>
+{CSS}
+</style>
+</head>
+<body>
+<header>
+  <h1>VideoNojo</h1>
+  <input id="search" type="search" placeholder="Search by title…" autofocus>
+  <span id="count"></span>
+</header>
+<div id="tabs"></div>
+<main id="main">
+  <aside id="groups">
+    <select id="group-field">
+      <option value="genres">Genre</option>
+      <option value="studios">Studio</option>
+      <option value="formats">Format</option>
+      <option value="country">Country</option>
+    </select>
+    <div id="group-list"></div>
+  </aside>
+  <div id="right-col">
+    <div id="list-pane">
+      <table id="movies">
+        <thead><tr>
+          <th data-k="title">Title</th>
+          <th data-k="release_year">Year</th>
+          <th data-k="country">Country</th>
+          <th data-k="genres">Genre(s)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <aside id="detail">
+      <p id="detail-empty">Select a movie.</p>
+      <div id="detail-content"></div>
+    </aside>
+  </div>
+</main>
+<script id="data" type="application/json">{data_json}</script>
+<script>
+{JS}
+</script>
+</body>
+</html>
+"##,
+        CSS = STATIC_EXPORT_CSS,
+        JS = STATIC_EXPORT_JS,
+        data_json = data_json,
+    );
+    std::fs::write(path, html).with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
+}
+
+const STATIC_EXPORT_CSS: &str = r##"
+body { font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #1a1a1a; height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid #ddd; background: #fff; flex-shrink: 0; }
+header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
+#search { flex: 1 1 12rem; min-width: 8rem; max-width: 24rem; font-size: 1rem; padding: 0.4rem 0.6rem; }
+#count { color: #666; font-size: 0.85rem; }
+#tabs { display: flex; gap: 0.4rem; padding: 0.4rem 1rem; overflow-x: auto; background: #f0f2ff; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+#tabs .tab { flex: 0 0 auto; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; cursor: pointer; background: #e4e9ff; border: 1px solid #c3d2f7; color: #2e4bb0; }
+#tabs .tab:hover { background: #dce5fb; border-color: #6a7fe0; }
+#tabs .tab.active { background: #6a7fe0; border-color: #6a7fe0; color: #fff; }
+#tabs .tab .n { opacity: 0.75; margin-left: 0.3rem; }
+#tabs .tab.active .n { opacity: 0.9; }
+#main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+#groups { flex: 0 0 220px; min-width: 140px; padding: 0.75rem; overflow-y: auto; background: #fafafa; }
+#group-field { width: 100%; margin-bottom: 0.5rem; padding: 0.3rem; }
+.group-row { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0.4rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+.group-row:hover { background: #eef0ff; }
+.group-row.active { background: #dce5fb; font-weight: 600; }
+.group-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-count { color: #888; flex-shrink: 0; }
+#right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+#list-pane { flex: 0 0 240px; min-height: 100px; overflow-y: auto; }
+#movies { border-collapse: collapse; width: 100%; }
+#movies th { text-align: left; position: sticky; top: 0; background: #f5f5f5; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
+#movies td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; cursor: pointer; }
+#movies tr:hover td { background: #f5f7ff; }
+#detail { flex: 1 1 auto; min-height: 100px; padding: 1rem; overflow-y: auto; background: #fafafa; }
+#detail-empty { color: #888; font-style: italic; }
+#detail-content img { max-width: 160px; display: block; margin-bottom: 0.75rem; border-radius: 4px; }
+#detail-content dl { display: grid; grid-template-columns: 6rem 1fr; gap: 0.25rem 0.5rem; font-size: 0.9rem; }
+#detail-content dt { color: #666; }
+#detail-content dd { margin: 0; }
+"##;
+
+const STATIC_EXPORT_JS: &str = r##"
+const movies = JSON.parse(document.getElementById("data").textContent);
+let currentDetailId = null;
+let groupField = "genres";
+let selectedGroup = null;
+const DEFAULT_COLLECTION_KEY = "__default__";
+let currentCollection = null;
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+function field(label, value) {
+  return value ? `<dt>${label}</dt><dd>${escapeHtml(value)}</dd>` : "";
+}
+
+function roleList(label, names) {
+  return names && names.length ? `<dt>${label}</dt><dd>${escapeHtml(names.join(", "))}</dd>` : "";
+}
+
+function creditList(label, credits) {
+  if (!credits || !credits.length) return "";
+  const text = credits.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)).join(", ");
+  return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
+}
+
+function collectionKey(m) {
+  return m.collection || DEFAULT_COLLECTION_KEY;
+}
+function collectionLabel(key) {
+  return key === DEFAULT_COLLECTION_KEY ? "Default collection" : key;
+}
+
+function groupValues(m, f) {
+  return f === "country" ? (m.country ? [m.country] : []) : m[f] || [];
+}
+
+function computeCollections() {
+  const counts = new Map();
+  for (const m of movies) {
+    const key = collectionKey(m);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function renderTabs() {
+  const collections = computeCollections();
+  if (currentCollection === null || !collections.some(([key]) => key === currentCollection)) {
+    currentCollection = collections.length ? collections[0][0] : null;
+  }
+  document.getElementById("tabs").innerHTML = collections
+    .map(([key, count]) => `
+      <div class="tab ${key === currentCollection ? "active" : ""}" data-key="${escapeHtml(key)}">
+        ${escapeHtml(collectionLabel(key))} <span class="n">${count}</span>
+      </div>`)
+    .join("");
+  document.querySelectorAll("#tabs .tab").forEach((el) =>
+    el.addEventListener("click", () => {
+      currentCollection = el.dataset.key;
+      selectedGroup = null;
+      renderTabs();
+      renderGroups();
+      render(document.getElementById("search").value);
+    })
+  );
+}
+
+function scopedMovies() {
+  return movies.filter((m) => collectionKey(m) === currentCollection);
+}
+
+function computeGroups() {
+  const counts = new Map();
+  for (const m of scopedMovies()) {
+    for (const v of groupValues(m, groupField)) {
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function renderGroups() {
+  const groups = computeGroups();
+  const allClass = selectedGroup === null ? "active" : "";
+  const rows = groups
+    .map(([value, count]) => `
+      <div class="group-row ${selectedGroup === value ? "active" : ""}" data-value="${escapeHtml(value)}">
+        <span class="group-label">${escapeHtml(value)}</span>
+        <span class="group-count">${count}</span>
+      </div>`)
+    .join("");
+  document.getElementById("group-list").innerHTML = `
+    <div class="group-row ${allClass}" data-value="">
+      <span class="group-label">All</span>
+      <span class="group-count">${scopedMovies().length}</span>
+    </div>
+    ${rows}
+  `;
+  document.querySelectorAll("#group-list .group-row").forEach((el) =>
+    el.addEventListener("click", () => {
+      selectedGroup = el.dataset.value || null;
+      renderGroups();
+      render(document.getElementById("search").value);
+    })
+  );
+}
+
+function render(filterText) {
+  const filter = (filterText || "").toLowerCase();
+  const rows = scopedMovies()
+    .filter((m) => m.title.toLowerCase().includes(filter))
+    .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
+  document.getElementById("count").textContent = `${rows.length} movie(s)`;
+  const tbody = document.querySelector("#movies tbody");
+  tbody.innerHTML = rows
+    .map((m) => `
+      <tr data-id="${m.id}">
+        <td>${escapeHtml(m.title)}</td>
+        <td>${escapeHtml(m.release_year)}</td>
+        <td>${escapeHtml(m.country)}</td>
+        <td>${escapeHtml((m.genres || []).join(", "))}</td>
+      </tr>`)
+    .join("");
+  tbody.querySelectorAll("tr").forEach((tr) =>
+    tr.addEventListener("click", () => showDetail(Number(tr.dataset.id)))
+  );
+}
+
+function showDetail(id) {
+  currentDetailId = id;
+  const m = movies.find((x) => x.id === id);
+  if (!m) return;
+  document.getElementById("detail-empty").hidden = true;
+  document.getElementById("detail-content").innerHTML = `
+    ${m.front_cover_url ? `<img src="${m.front_cover_url}" alt="">` : ""}
+    <h2>${escapeHtml(m.title)}</h2>
+    <dl>
+      ${field("Original title", m.title_original)}
+      ${field("Year", m.release_year)}
+      ${field("Country", m.country)}
+      ${roleList("Genre(s)", m.genres)}
+      ${roleList("Studio(s)", m.studios)}
+      ${roleList("Format(s)", m.formats)}
+      ${roleList("Cast", (m.cast || []).map((c) => c.name))}
+      ${creditList("Crew", m.crew)}
+      ${field("Rating", m.rating != null ? String(m.rating) : "")}
+      ${field("Notes", m.notes)}
+      ${field("Plot", m.plot)}
+      ${field("Date added", m.date_added)}
+    </dl>
+  `;
+}
+
+document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
+renderTabs();
+renderGroups();
+render("");
+"##;
+
 #[cfg(test)]
 mod tests {
     use super::*;
