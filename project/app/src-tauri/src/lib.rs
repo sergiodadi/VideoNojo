@@ -3,7 +3,11 @@ use std::path::Path;
 use serde::Serialize;
 use tauri::Emitter;
 use tauri_plugin_dialog::DialogExt;
-use video_collector_export::{load_movies, open_readonly, resolve_db_path, Movie};
+use video_collector_export::{
+    backup_database, build_plan, commit_plan, ensure_not_real_collection, load_movies,
+    open_readonly, open_writable, preview_add_movie, resolve_db_path, AddMoviePreview, Movie,
+    MovieFields,
+};
 
 /// The app's HTML shell has no build step to burn a version string
 /// into it, so the frontend asks for it over IPC instead.
@@ -107,11 +111,42 @@ fn pick_collection(app: tauri::AppHandle) {
         });
 }
 
+/// Resolves a new movie against the collection, read-only — the
+/// frontend shows every resolved field with a "new" badge and
+/// requires confirming before `add_movie` actually writes anything.
+#[tauri::command]
+fn prepare_add_movie(path: String, fields: MovieFields) -> Result<AddMoviePreview, String> {
+    let conn = open_readonly(Path::new(&path)).map_err(|e| e.to_string())?;
+    preview_add_movie(&conn, &fields).map_err(|e| e.to_string())
+}
+
+/// Writes a new movie — only ever reachable after `prepare_add_movie`
+/// resolved it and the user confirmed. Same real-collection refusal
+/// and pre-write backup as the CLI's own `commit`.
+#[tauri::command]
+fn add_movie(path: String, fields: MovieFields) -> Result<(), String> {
+    let path = Path::new(&path);
+    ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    backup_database(path).map_err(|e| e.to_string())?;
+    let plan = {
+        let conn = open_readonly(path).map_err(|e| e.to_string())?;
+        build_plan(&conn, &fields).map_err(|e| e.to_string())?
+    };
+    let conn = open_writable(path).map_err(|e| e.to_string())?;
+    commit_plan(&conn, &plan).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![app_version, list_movies, pick_collection])
+        .invoke_handler(tauri::generate_handler![
+            app_version,
+            list_movies,
+            pick_collection,
+            prepare_add_movie,
+            add_movie
+        ])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }

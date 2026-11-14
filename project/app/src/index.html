@@ -12,6 +12,7 @@
     <span id="count"></span>
     <span id="file-badge"></span>
     <button id="open-collection">Open Collection…</button>
+    <button id="add-movie">Add Movie…</button>
     <span id="app-version"></span>
   </header>
   <main id="main">
@@ -42,6 +43,38 @@
       </aside>
     </div>
   </main>
+  <dialog id="add-movie-dialog">
+    <form id="add-movie-form" method="dialog">
+      <h2>Add Movie</h2>
+      <label>Title <input name="title" required /></label>
+      <label>Release year <input name="release_year" /></label>
+      <label>Rating (0–5) <input name="rating" type="number" min="0" max="5" /></label>
+      <label>Country <input name="country" /></label>
+      <label>Genre(s), comma-separated <input name="genres" /></label>
+      <label>Studio(s), comma-separated <input name="studios" /></label>
+      <label>Format(s), comma-separated <input name="formats" /></label>
+      <label>Actor(s), comma-separated <input name="actors" /></label>
+      <label>Crew, comma-separated ("Name" or "Name:Role") <input name="crew" /></label>
+      <label>Plot <textarea name="plot" rows="2"></textarea></label>
+      <label>Notes <textarea name="notes" rows="2"></textarea></label>
+      <div id="add-movie-error" class="error"></div>
+      <menu>
+        <button type="button" id="add-movie-cancel">Cancel</button>
+        <button type="submit">Next…</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="add-preview-dialog">
+    <h2 id="add-preview-title"></h2>
+    <p id="add-preview-summary"></p>
+    <ul id="add-preview-list"></ul>
+    <menu>
+      <button type="button" id="add-preview-cancel">Cancel</button>
+      <button type="button" id="add-preview-confirm">Confirm and add</button>
+    </menu>
+  </dialog>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

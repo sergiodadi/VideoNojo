@@ -565,6 +565,109 @@ fn resolve_collection_pk(conn: &Connection, name: &str) -> Result<i64> {
         .with_context(|| format!("no sub-collection named '{name}'"))
 }
 
+/// Whether `name` already exists for a two-hop lookup kind — read-only,
+/// never creates anything (unlike `resolve_or_create_lookup`).
+fn lookup_exists(conn: &Connection, table: &str, name: &str) -> Result<bool> {
+    let exists: Option<i64> = conn
+        .query_row(
+            &format!(
+                "SELECT t.Z_PK FROM {table} t \
+                 JOIN ZLOOKUPITEMDELEGATE d ON t.ZDELEGATE = d.Z_PK \
+                 WHERE d.ZDISPLAYNAME = ?1"
+            ),
+            [name],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(exists.is_some())
+}
+
+/// Same as `lookup_exists`, but for person-like entities (`Actor`,
+/// `CreditPerson`), via `ZPERSONDELEGATE`.
+fn person_exists(conn: &Connection, table: &str, name: &str) -> Result<bool> {
+    let exists: Option<i64> = conn
+        .query_row(
+            &format!(
+                "SELECT t.Z_PK FROM {table} t \
+                 JOIN ZPERSONDELEGATE d ON t.ZDELEGATE = d.Z_PK \
+                 WHERE d.ZDISPLAYNAME = ?1"
+            ),
+            [name],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(exists.is_some())
+}
+
+/// One field as it would be written, and whether resolving it would
+/// create a new lookup/person value.
+#[derive(Serialize, Clone)]
+pub struct ResolvedField {
+    pub label: String,
+    pub value: String,
+    pub is_new: bool,
+}
+
+#[derive(Serialize)]
+pub struct AddMoviePreview {
+    pub title: String,
+    pub fields: Vec<ResolvedField>,
+    pub new_count: usize,
+}
+
+/// Resolves a new movie against the collection **without writing
+/// anything** — same exact-match resolution `build_plan` itself uses,
+/// just reporting what would happen instead of staging it. Used by
+/// the GUI to show every resolved value with a "new" badge before the
+/// user confirms the actual write.
+pub fn preview_add_movie(conn: &Connection, fields: &MovieFields) -> Result<AddMoviePreview> {
+    let title = fields.title.clone().context("title is required to add a movie")?;
+    let mut resolved = Vec::new();
+
+    if let Some(name) = &fields.country {
+        resolved.push(ResolvedField {
+            label: "Country".to_string(),
+            value: name.clone(),
+            is_new: !lookup_exists(conn, "ZCOUNTRY", name)?,
+        });
+    }
+    for (label, table, names) in [
+        ("Genre", "ZGENRE", &fields.genres),
+        ("Studio", "ZSTUDIO", &fields.studios),
+        ("Format", "ZFORMAT", &fields.formats),
+    ] {
+        for name in names {
+            resolved.push(ResolvedField {
+                label: label.to_string(),
+                value: name.clone(),
+                is_new: !lookup_exists(conn, table, name)?,
+            });
+        }
+    }
+    for name in &fields.actors {
+        resolved.push(ResolvedField {
+            label: "Actor".to_string(),
+            value: name.clone(),
+            is_new: !person_exists(conn, "ZACTOR", name)?,
+        });
+    }
+    for entry in &fields.crew {
+        let name = entry.split_once(':').map(|(n, _)| n).unwrap_or(entry);
+        resolved.push(ResolvedField {
+            label: "Crew".to_string(),
+            value: entry.clone(),
+            is_new: !person_exists(conn, "ZCREDITPERSON", name)?,
+        });
+    }
+
+    let new_count = resolved.iter().filter(|f| f.is_new).count();
+    Ok(AddMoviePreview {
+        title,
+        fields: resolved,
+        new_count,
+    })
+}
+
 /// Builds the full SQL text to add one movie, wrapped in
 /// `BEGIN;`/`COMMIT;` — resolved against `conn` (a read-only
 /// connection is fine, nothing here is executed) but never run by
@@ -903,6 +1006,66 @@ mod tests {
             std::fs::set_permissions(entry.path(), perms).unwrap();
         }
         Some((scratch, dest))
+    }
+
+    #[test]
+    fn preview_add_movie_flags_new_vs_existing_values_correctly() {
+        let Some((scratch, dest)) = fresh_scratch_copy() else {
+            return;
+        };
+
+        // First add a movie with a known genre/actor, so the preview
+        // below has something pre-existing to compare against.
+        {
+            let conn = open_readonly(&dest).unwrap();
+            let plan = build_plan(
+                &conn,
+                &MovieFields {
+                    title: Some("Preview Setup Movie".to_string()),
+                    genres: vec!["Preview Existing Genre".to_string()],
+                    actors: vec!["Preview Existing Actor".to_string()],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            drop(conn);
+            let conn = open_writable(&dest).unwrap();
+            commit_plan(&conn, &plan).unwrap();
+        }
+
+        let conn = open_readonly(&dest).unwrap();
+        let preview = preview_add_movie(
+            &conn,
+            &MovieFields {
+                title: Some("Preview Target Movie".to_string()),
+                genres: vec!["Preview Existing Genre".to_string(), "Preview New Genre".to_string()],
+                actors: vec!["Preview New Actor".to_string()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(preview.title, "Preview Target Movie");
+        assert_eq!(preview.new_count, 2);
+        let existing_genre = preview.fields.iter().find(|f| f.value == "Preview Existing Genre").unwrap();
+        assert!(!existing_genre.is_new);
+        let new_genre = preview.fields.iter().find(|f| f.value == "Preview New Genre").unwrap();
+        assert!(new_genre.is_new);
+        let new_actor = preview.fields.iter().find(|f| f.value == "Preview New Actor").unwrap();
+        assert!(new_actor.is_new);
+
+        // Read-only: confirm nothing was actually created by the preview.
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ZCOLLECTIBLE WHERE ZTITLE = 'Preview Target Movie'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
+
+        drop(conn);
+        std::fs::remove_dir_all(&scratch).ok();
     }
 
     #[test]

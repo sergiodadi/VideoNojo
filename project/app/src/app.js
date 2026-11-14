@@ -143,6 +143,50 @@ async function loadCollection(path) {
   render(document.getElementById("search").value);
 }
 
+function listFromCsv(s) {
+  return (s || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function fieldsFromAddForm(form) {
+  const data = new FormData(form);
+  return {
+    title: data.get("title") || null,
+    release_year: data.get("release_year") || null,
+    rating: data.get("rating") ? Number(data.get("rating")) : null,
+    country: data.get("country") || null,
+    genres: listFromCsv(data.get("genres")),
+    studios: listFromCsv(data.get("studios")),
+    formats: listFromCsv(data.get("formats")),
+    actors: listFromCsv(data.get("actors")),
+    crew: listFromCsv(data.get("crew")),
+    plot: data.get("plot") || null,
+    notes: data.get("notes") || null,
+    title_original: null,
+    upc: null,
+    collection: null,
+  };
+}
+
+let pendingAddFields = null;
+
+function showAddPreview(preview) {
+  document.getElementById("add-preview-title").textContent = preview.title;
+  document.getElementById("add-preview-summary").textContent =
+    preview.new_count > 0
+      ? `${preview.new_count} new value(s) will be created:`
+      : "No new values — every field already exists in this collection.";
+  document.getElementById("add-preview-list").innerHTML = preview.fields
+    .map(
+      (f) =>
+        `<li>${escapeHtml(f.label)}: ${escapeHtml(f.value)}${f.is_new ? ' <span class="new-badge">new</span>' : ""}</li>`
+    )
+    .join("");
+  document.getElementById("add-preview-dialog").showModal();
+}
+
 async function boot() {
   try {
     const version = await invoke("app_version");
@@ -162,6 +206,37 @@ async function boot() {
     render(document.getElementById("search").value);
   });
   await listen("collection-picked", (event) => loadCollection(event.payload));
+
+  const addDialog = document.getElementById("add-movie-dialog");
+  const addForm = document.getElementById("add-movie-form");
+  const previewDialog = document.getElementById("add-preview-dialog");
+
+  document.getElementById("add-movie").addEventListener("click", () => {
+    addForm.reset();
+    document.getElementById("add-movie-error").textContent = "";
+    addDialog.showModal();
+  });
+  document.getElementById("add-movie-cancel").addEventListener("click", () => addDialog.close());
+
+  addForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fields = fieldsFromAddForm(addForm);
+    try {
+      pendingAddFields = fields;
+      const preview = await invoke("prepare_add_movie", { path: currentPath, fields });
+      addDialog.close();
+      showAddPreview(preview);
+    } catch (err) {
+      document.getElementById("add-movie-error").textContent = String(err);
+    }
+  });
+
+  document.getElementById("add-preview-cancel").addEventListener("click", () => previewDialog.close());
+  document.getElementById("add-preview-confirm").addEventListener("click", async () => {
+    await invoke("add_movie", { path: currentPath, fields: pendingAddFields });
+    previewDialog.close();
+    await loadCollection(currentPath);
+  });
 }
 
 boot();
