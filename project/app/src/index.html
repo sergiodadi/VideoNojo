@@ -15,21 +15,32 @@
     <span id="app-version"></span>
   </header>
   <main id="main">
-    <table id="movies">
-      <thead>
-        <tr>
-          <th data-k="title">Title</th>
-          <th data-k="release_year">Year</th>
-          <th data-k="country">Country</th>
-          <th data-k="genres">Genre(s)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <aside id="detail">
-      <p id="detail-empty">Select a movie.</p>
-      <div id="detail-content"></div>
+    <aside id="groups">
+      <select id="group-field">
+        <option value="genres">Genre</option>
+        <option value="studios">Studio</option>
+        <option value="formats">Format</option>
+        <option value="country">Country</option>
+      </select>
+      <div id="group-list"></div>
     </aside>
+    <div id="right-col">
+      <table id="movies">
+        <thead>
+          <tr>
+            <th data-k="title">Title</th>
+            <th data-k="release_year">Year</th>
+            <th data-k="country">Country</th>
+            <th data-k="genres">Genre(s)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <aside id="detail">
+        <p id="detail-empty">Select a movie.</p>
+        <div id="detail-content"></div>
+      </aside>
+    </div>
   </main>
   <script type="module" src="app.js"></script>
 </body>

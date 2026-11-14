@@ -4,6 +4,8 @@ const { listen } = window.__TAURI__.event;
 let movies = [];
 let currentDetailId = null;
 let currentPath = null;
+let groupField = "genres";
+let selectedGroup = null;
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -29,9 +31,56 @@ function creditList(label, credits) {
   return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
 }
 
+// Country is a single value, the others are repeatable lists — both
+// shapes are normalized to an array so group filtering/counting can
+// treat them uniformly.
+function groupValues(m, f) {
+  return f === "country" ? (m.country ? [m.country] : []) : m[f] || [];
+}
+
+function computeGroups() {
+  const counts = new Map();
+  for (const m of movies) {
+    for (const v of groupValues(m, groupField)) {
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+function renderGroups() {
+  const groups = computeGroups();
+  const allClass = selectedGroup === null ? "active" : "";
+  const rows = groups
+    .map(
+      ([value, count]) => `
+      <div class="group-row ${selectedGroup === value ? "active" : ""}" data-value="${escapeHtml(value)}">
+        <span class="group-label">${escapeHtml(value)}</span>
+        <span class="group-count">${count}</span>
+      </div>`
+    )
+    .join("");
+  document.getElementById("group-list").innerHTML = `
+    <div class="group-row ${allClass}" data-value="">
+      <span class="group-label">All</span>
+      <span class="group-count">${movies.length}</span>
+    </div>
+    ${rows}
+  `;
+  document.querySelectorAll("#group-list .group-row").forEach((el) =>
+    el.addEventListener("click", () => {
+      selectedGroup = el.dataset.value || null;
+      renderGroups();
+      render(document.getElementById("search").value);
+    })
+  );
+}
+
 function render(filterText) {
   const filter = (filterText || "").toLowerCase();
-  const rows = movies.filter((m) => m.title.toLowerCase().includes(filter));
+  const rows = movies
+    .filter((m) => m.title.toLowerCase().includes(filter))
+    .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
   document.getElementById("count").textContent = `${rows.length} movie(s)`;
   const tbody = document.querySelector("#movies tbody");
   tbody.innerHTML = rows
@@ -85,10 +134,12 @@ async function loadCollection(path) {
   const resp = await invoke("list_movies", { path });
   movies = resp.movies;
   currentPath = resp.path;
+  selectedGroup = null;
   document.getElementById("file-badge").textContent = fileBadge(resp.path);
   document.getElementById("detail-content").innerHTML = "";
   document.getElementById("detail-empty").hidden = false;
   currentDetailId = null;
+  renderGroups();
   render(document.getElementById("search").value);
 }
 
@@ -104,6 +155,12 @@ async function boot() {
 
   document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
   document.getElementById("open-collection").addEventListener("click", () => invoke("pick_collection"));
+  document.getElementById("group-field").addEventListener("change", (e) => {
+    groupField = e.target.value;
+    selectedGroup = null;
+    renderGroups();
+    render(document.getElementById("search").value);
+  });
   await listen("collection-picked", (event) => loadCollection(event.payload));
 }
 

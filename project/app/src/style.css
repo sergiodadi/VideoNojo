@@ -62,6 +62,58 @@ header h1 {
   overflow: hidden;
 }
 
+#groups {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 0.75rem;
+  overflow-y: auto;
+  border-right: 1px solid #ddd;
+  background: #fafafa;
+}
+
+#group-field {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem;
+}
+
+.group-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.group-row:hover {
+  background: #eef0ff;
+}
+
+.group-row.active {
+  background: #dce5fb;
+  font-weight: 600;
+}
+
+.group-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-count {
+  color: #888;
+  flex-shrink: 0;
+}
+
+#right-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 #movies {
   flex: 1;
   overflow-y: auto;
