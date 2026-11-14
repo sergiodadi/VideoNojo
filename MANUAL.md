@@ -1,0 +1,117 @@
+# User manual — VideoNojo application
+
+> 🇫🇷 [Lire en français](MANUAL.fr.md)
+
+This document explains how to use the macOS **VideoNojo** application
+once installed. To download it, see [`README.md`](README.md); to
+compile it from source, see [`BUILD.md`](BUILD.md).
+
+## 1. Opening a collection
+
+- **"Open Collection…"** (in the header, or File → Open Collection…
+  in the menu bar) opens the native macOS file picker to choose a
+  `.mvcp` collection. The picker only accepts `.mvcp` files.
+- A `.mvcp` collection from a Movie Collector version other than the
+  one VideoNojo was built against (20.2.2.1) is rejected at this
+  point, with a clear message rather than a crash or silent
+  corruption.
+- On the very first launch, before opening anything, VideoNojo shows
+  an entirely fictional bundled sample collection (8 invented movies,
+  no personal data) — so there's always something to see, without ever
+  exposing real data by default.
+- Every later launch reopens the same collection, at the exact same
+  spot — active tab, grouping, search, and selected movie are all
+  remembered.
+- The header always displays the name of the open file, a version
+  badge, and an EN/FR language toggle.
+
+## 2. Browsing the library
+
+- **Three zones**: the grouping panel on the left, the movie list at
+  top right, the detail card at bottom right. The dividers between the
+  three zones can be resized with the mouse.
+- **Grouping** by Genre (default), Studio, Format or Country.
+- **Search** by title.
+- **Multiple sub-collections** in a single file — tabs at the top
+  switch between them, scoping the list and groups to whichever is
+  active.
+- **Movie detail card**: title, original title, release year, country,
+  genres, studios, formats, cast, crew (with role, when known), rating,
+  notes, plot, and date added.
+- Typing in the add/edit form's country/genre/studio/format/actor/crew
+  fields offers autocomplete suggestions drawn from the collection's
+  own existing values.
+
+## 3. Adding, editing, deleting a movie
+
+- **Add a movie**: a form covering title, original title, release
+  year, rating, country, genres, studios, formats, actors and crew
+  (comma-separated; a crew entry can be `"Name"` or `"Name:Role"`),
+  plot and notes. Before anything is written, a preview lists every
+  country/genre/studio/format/actor/crew value that was typed, with a
+  "new" badge on the ones that don't already exist in the collection
+  (catching a typo before it becomes a permanent duplicate entry) —
+  confirming it is what actually adds the movie. The new movie joins
+  whichever sub-collection tab is currently active, and is stamped
+  with the current date and time as its date added — editing a movie
+  never changes this later.
+- **Edit a movie**: from its detail card, the same form opens
+  pre-filled with the current values, and writes immediately (no
+  preview step).
+- **Delete a movie**: from its detail card, after a confirmation
+  dialog.
+- After any add, edit or delete, the library is automatically
+  reloaded: the change appears immediately, with no manual action
+  needed.
+- There is no way yet, from the application, to set a movie's cover
+  image.
+
+## 4. Bilingual interface
+
+- An **EN / FR** toggle in the header switches the whole interface —
+  grouping, list, detail card, add/edit form — between English and
+  French. The choice is remembered from one session to the next (and
+  so is the chosen layout size).
+
+## 5. Data safety
+
+- The user's real Movie Collector collection is never modified by
+  accident: every write (add, edit, delete) is preceded by a
+  timestamped backup of the file, and is refused outright — with no
+  override reachable from the application — if the path looks like the
+  real collection.
+- VideoNojo can open the real collection in **read-only** mode to
+  browse it (opening it is always `SQLITE_OPEN_READ_ONLY` at the
+  database level), but none of the write actions above have any
+  exception for it.
+
+## 6. What the application doesn't do yet
+
+- Setting or changing a movie's cover image.
+- Changing a movie's sub-collection from the application — only *add*
+  places it in whichever tab is active. The `vc_add` CLI's
+  `edit-plan --collection <name>` can move an existing movie to a
+  different already-existing sub-collection; see [`CLI.md`](CLI.md).
+- An A-Z bar, sort, grid view, pagination, or a statistics panel —
+  none of this exists yet, in the application or in its static HTML
+  export.
+- Discs, episodes, box sets, series, links, tags, region, screen
+  ratio, subtitle, HDR, extra, or audio track data — Movie Collector's
+  own richer structure beyond a flat movie record — isn't modeled
+  anywhere in VideoNojo yet, read or write.
+- Online lookup to pre-fill a record from a barcode or a database
+  match — not started.
+- Not yet code-signed/notarized with an Apple developer account — no
+  consequence for personal use, but needed before distributing the
+  application to anyone else.
+
+## 7. Going further
+
+- [`BUILD.md`](BUILD.md): compiling the application from source.
+- [`CHANGELOG.md`](CHANGELOG.md): history of versions published on
+  GitHub.
+
+For everyday use, the application alone is enough — you don't need to
+know any terminal commands. For the command-line tools
+(`vc_export`/`vc_add`), meant for more technical use (CSV/JSON/HTML
+export, scripts), see [`CLI.md`](CLI.md).
