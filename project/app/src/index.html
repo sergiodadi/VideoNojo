@@ -8,20 +8,24 @@
 <body>
   <header>
     <h1>VideoNojo</h1>
-    <input id="search" type="search" placeholder="Search by title…" autofocus />
+    <input id="search" type="search" data-i18n-placeholder="search_placeholder" placeholder="Search by title…" autofocus />
     <span id="count"></span>
     <span id="file-badge"></span>
-    <button id="open-collection">Open Collection…</button>
-    <button id="add-movie">Add Movie…</button>
+    <button id="open-collection" data-i18n="nav_open">Open Collection…</button>
+    <button id="add-movie" data-i18n="nav_add">Add Movie…</button>
+    <span id="lang-toggle">
+      <button id="lang-en" type="button">EN</button>
+      <button id="lang-fr" type="button">FR</button>
+    </span>
     <span id="app-version"></span>
   </header>
   <main id="main">
     <aside id="groups">
       <select id="group-field">
-        <option value="genres">Genre</option>
-        <option value="studios">Studio</option>
-        <option value="formats">Format</option>
-        <option value="country">Country</option>
+        <option value="genres" data-i18n="opt_group_genres">Genre</option>
+        <option value="studios" data-i18n="opt_group_studios">Studio</option>
+        <option value="formats" data-i18n="opt_group_formats">Format</option>
+        <option value="country" data-i18n="opt_group_country">Country</option>
       </select>
       <div id="group-list"></div>
     </aside>
@@ -29,38 +33,38 @@
       <table id="movies">
         <thead>
           <tr>
-            <th data-k="title">Title</th>
-            <th data-k="release_year">Year</th>
-            <th data-k="country">Country</th>
-            <th data-k="genres">Genre(s)</th>
+            <th data-k="title" data-i18n="col_title">Title</th>
+            <th data-k="release_year" data-i18n="col_year">Year</th>
+            <th data-k="country" data-i18n="col_country">Country</th>
+            <th data-k="genres" data-i18n="col_genres">Genre(s)</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
       <aside id="detail">
-        <p id="detail-empty">Select a movie.</p>
+        <p id="detail-empty" data-i18n="detail_select">Select a movie.</p>
         <div id="detail-content"></div>
       </aside>
     </div>
   </main>
   <dialog id="add-movie-dialog">
     <form id="add-movie-form" method="dialog">
-      <h2 id="add-movie-dialog-title">Add Movie</h2>
-      <label>Title <input name="title" required /></label>
-      <label>Release year <input name="release_year" /></label>
-      <label>Rating (0–5) <input name="rating" type="number" min="0" max="5" /></label>
-      <label>Country <input name="country" /></label>
-      <label>Genre(s), comma-separated <input name="genres" /></label>
-      <label>Studio(s), comma-separated <input name="studios" /></label>
-      <label>Format(s), comma-separated <input name="formats" /></label>
-      <label>Actor(s), comma-separated <input name="actors" /></label>
-      <label>Crew, comma-separated ("Name" or "Name:Role") <input name="crew" /></label>
-      <label>Plot <textarea name="plot" rows="2"></textarea></label>
-      <label>Notes <textarea name="notes" rows="2"></textarea></label>
+      <h2 id="add-movie-dialog-title" data-i18n="form_title_add">Add Movie</h2>
+      <label><span data-i18n="form_label_title">Title</span> <input name="title" required /></label>
+      <label><span data-i18n="form_label_year">Release year</span> <input name="release_year" /></label>
+      <label><span data-i18n="form_label_rating">Rating (0–5)</span> <input name="rating" type="number" min="0" max="5" /></label>
+      <label><span data-i18n="form_label_country">Country</span> <input name="country" /></label>
+      <label><span data-i18n="form_label_genres">Genre(s), comma-separated</span> <input name="genres" /></label>
+      <label><span data-i18n="form_label_studios">Studio(s), comma-separated</span> <input name="studios" /></label>
+      <label><span data-i18n="form_label_formats">Format(s), comma-separated</span> <input name="formats" /></label>
+      <label><span data-i18n="form_label_actors">Actor(s), comma-separated</span> <input name="actors" /></label>
+      <label><span data-i18n="form_label_crew">Crew, comma-separated ("Name" or "Name:Role")</span> <input name="crew" /></label>
+      <label><span data-i18n="form_label_plot">Plot</span> <textarea name="plot" rows="2"></textarea></label>
+      <label><span data-i18n="form_label_notes">Notes</span> <textarea name="notes" rows="2"></textarea></label>
       <div id="add-movie-error" class="error"></div>
       <menu>
-        <button type="button" id="add-movie-cancel">Cancel</button>
-        <button type="submit" id="add-movie-submit">Next…</button>
+        <button type="button" id="add-movie-cancel" data-i18n="form_cancel">Cancel</button>
+        <button type="submit" id="add-movie-submit" data-i18n="form_next">Next…</button>
       </menu>
     </form>
   </dialog>
@@ -70,8 +74,8 @@
     <p id="add-preview-summary"></p>
     <ul id="add-preview-list"></ul>
     <menu>
-      <button type="button" id="add-preview-cancel">Cancel</button>
-      <button type="button" id="add-preview-confirm">Confirm and add</button>
+      <button type="button" id="add-preview-cancel" data-i18n="form_cancel">Cancel</button>
+      <button type="button" id="add-preview-confirm" data-i18n="add_preview_confirm">Confirm and add</button>
     </menu>
   </dialog>
 

@@ -8,6 +8,148 @@ let groupField = "genres";
 let selectedGroup = null;
 let editingMovieId = null;
 
+// --- i18n -----------------------------------------------------------
+// Every user-visible string goes through t() so toggling the language
+// re-renders consistently instead of leaving some parts translated
+// and others not. Scoped to the JS frontend only — the native macOS
+// menu and any error text returned from Rust commands stay as-is
+// regardless of the toggle, same deliberate scope limit BookNojo/
+// MusicNojo's own i18n work used.
+const I18N = {
+  en: {
+    nav_open: "Open Collection…",
+    nav_add: "Add Movie…",
+    search_placeholder: "Search by title…",
+    count_movies: "{n} movie(s)",
+    group_all: "All",
+    opt_group_genres: "Genre",
+    opt_group_studios: "Studio",
+    opt_group_formats: "Format",
+    opt_group_country: "Country",
+    col_title: "Title",
+    col_year: "Year",
+    col_country: "Country",
+    col_genres: "Genre(s)",
+    detail_select: "Select a movie.",
+    detail_edit: "Edit…",
+    detail_delete: "Delete…",
+    detail_field_original_title: "Original title",
+    detail_field_year: "Year",
+    detail_field_country: "Country",
+    detail_field_genres: "Genre(s)",
+    detail_field_studios: "Studio(s)",
+    detail_field_formats: "Format(s)",
+    detail_field_cast: "Cast",
+    detail_field_crew: "Crew",
+    detail_field_rating: "Rating",
+    detail_field_notes: "Notes",
+    detail_field_plot: "Plot",
+    detail_field_date_added: "Date added",
+    delete_confirm: 'Delete "{title}"? This cannot be undone.',
+    form_title_add: "Add Movie",
+    form_title_edit: "Edit: {title}",
+    form_label_title: "Title",
+    form_label_year: "Release year",
+    form_label_rating: "Rating (0–5)",
+    form_label_country: "Country",
+    form_label_genres: "Genre(s), comma-separated",
+    form_label_studios: "Studio(s), comma-separated",
+    form_label_formats: "Format(s), comma-separated",
+    form_label_actors: "Actor(s), comma-separated",
+    form_label_crew: 'Crew, comma-separated ("Name" or "Name:Role")',
+    form_label_plot: "Plot",
+    form_label_notes: "Notes",
+    form_cancel: "Cancel",
+    form_next: "Next…",
+    form_save: "Save changes",
+    add_preview_confirm: "Confirm and add",
+    add_preview_new: "{n} new value(s) will be created:",
+    add_preview_none: "No new values — every field already exists in this collection.",
+  },
+  fr: {
+    nav_open: "Ouvrir une collection…",
+    nav_add: "Ajouter un film…",
+    search_placeholder: "Rechercher par titre…",
+    count_movies: "{n} film(s)",
+    group_all: "Tous",
+    opt_group_genres: "Genre",
+    opt_group_studios: "Studio",
+    opt_group_formats: "Format",
+    opt_group_country: "Pays",
+    col_title: "Titre",
+    col_year: "Année",
+    col_country: "Pays",
+    col_genres: "Genre(s)",
+    detail_select: "Sélectionnez un film.",
+    detail_edit: "Modifier…",
+    detail_delete: "Supprimer…",
+    detail_field_original_title: "Titre original",
+    detail_field_year: "Année",
+    detail_field_country: "Pays",
+    detail_field_genres: "Genre(s)",
+    detail_field_studios: "Studio(s)",
+    detail_field_formats: "Format(s)",
+    detail_field_cast: "Acteurs",
+    detail_field_crew: "Équipe",
+    detail_field_rating: "Note",
+    detail_field_notes: "Notes",
+    detail_field_plot: "Synopsis",
+    detail_field_date_added: "Date d'ajout",
+    delete_confirm: 'Supprimer « {title} » ? Cette action est irréversible.',
+    form_title_add: "Ajouter un film",
+    form_title_edit: "Modifier : {title}",
+    form_label_title: "Titre",
+    form_label_year: "Année de sortie",
+    form_label_rating: "Note (0–5)",
+    form_label_country: "Pays",
+    form_label_genres: "Genre(s), séparés par des virgules",
+    form_label_studios: "Studio(s), séparés par des virgules",
+    form_label_formats: "Format(s), séparés par des virgules",
+    form_label_actors: "Acteur(s), séparés par des virgules",
+    form_label_crew: 'Équipe, séparée par des virgules ("Nom" ou "Nom:Rôle")',
+    form_label_plot: "Synopsis",
+    form_label_notes: "Notes",
+    form_cancel: "Annuler",
+    form_next: "Suivant…",
+    form_save: "Enregistrer",
+    add_preview_confirm: "Confirmer et ajouter",
+    add_preview_new: "{n} nouvelle(s) valeur(s) seront créées :",
+    add_preview_none: "Aucune nouvelle valeur — tous les champs existent déjà dans cette collection.",
+  },
+};
+
+let lang = localStorage.getItem("videonojo_lang") || "en";
+
+function t(key, vars) {
+  let text = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      text = text.replace(`{${k}}`, v);
+    }
+  }
+  return text;
+}
+
+function applyStaticLabels() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.getElementById("lang-en").classList.toggle("active", lang === "en");
+  document.getElementById("lang-fr").classList.toggle("active", lang === "fr");
+}
+
+function setLang(newLang) {
+  lang = newLang;
+  localStorage.setItem("videonojo_lang", lang);
+  applyStaticLabels();
+  renderGroups();
+  render(document.getElementById("search").value);
+  if (currentDetailId !== null) showDetail(currentDetailId);
+}
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;",
@@ -70,7 +212,7 @@ function renderGroups() {
     .join("");
   document.getElementById("group-list").innerHTML = `
     <div class="group-row ${allClass}" data-value="">
-      <span class="group-label">All</span>
+      <span class="group-label">${t("group_all")}</span>
       <span class="group-count">${movies.length}</span>
     </div>
     ${rows}
@@ -89,7 +231,7 @@ function render(filterText) {
   const rows = movies
     .filter((m) => m.title.toLowerCase().includes(filter))
     .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
-  document.getElementById("count").textContent = `${rows.length} movie(s)`;
+  document.getElementById("count").textContent = t("count_movies", { n: rows.length });
   const tbody = document.querySelector("#movies tbody");
   tbody.innerHTML = rows
     .map(
@@ -115,22 +257,22 @@ function showDetail(id) {
   document.getElementById("detail-content").innerHTML = `
     <h2>${escapeHtml(m.title)}</h2>
     <dl>
-      ${field("Original title", m.title_original)}
-      ${field("Year", m.release_year)}
-      ${field("Country", m.country)}
-      ${roleList("Genre(s)", m.genres)}
-      ${roleList("Studio(s)", m.studios)}
-      ${roleList("Format(s)", m.formats)}
-      ${roleList("Cast", (m.cast || []).map((c) => c.name))}
-      ${creditList("Crew", m.crew)}
-      ${field("Rating", m.rating != null ? String(m.rating) : "")}
-      ${field("Notes", m.notes)}
-      ${field("Plot", m.plot)}
-      ${field("Date added", m.date_added)}
+      ${field(t("detail_field_original_title"), m.title_original)}
+      ${field(t("detail_field_year"), m.release_year)}
+      ${field(t("detail_field_country"), m.country)}
+      ${roleList(t("detail_field_genres"), m.genres)}
+      ${roleList(t("detail_field_studios"), m.studios)}
+      ${roleList(t("detail_field_formats"), m.formats)}
+      ${roleList(t("detail_field_cast"), (m.cast || []).map((c) => c.name))}
+      ${creditList(t("detail_field_crew"), m.crew)}
+      ${field(t("detail_field_rating"), m.rating != null ? String(m.rating) : "")}
+      ${field(t("detail_field_notes"), m.notes)}
+      ${field(t("detail_field_plot"), m.plot)}
+      ${field(t("detail_field_date_added"), m.date_added)}
     </dl>
     <div class="detail-actions">
-      <button id="detail-edit">Edit…</button>
-      <button id="detail-delete">Delete…</button>
+      <button id="detail-edit">${t("detail_edit")}</button>
+      <button id="detail-delete">${t("detail_delete")}</button>
     </div>
   `;
   document.getElementById("detail-edit").addEventListener("click", () => openEditForm(m));
@@ -189,9 +331,7 @@ let pendingAddFields = null;
 function showAddPreview(preview) {
   document.getElementById("add-preview-title").textContent = preview.title;
   document.getElementById("add-preview-summary").textContent =
-    preview.new_count > 0
-      ? `${preview.new_count} new value(s) will be created:`
-      : "No new values — every field already exists in this collection.";
+    preview.new_count > 0 ? t("add_preview_new", { n: preview.new_count }) : t("add_preview_none");
   document.getElementById("add-preview-list").innerHTML = preview.fields
     .map(
       (f) =>
@@ -217,8 +357,8 @@ function openEditForm(m) {
   addForm.elements.crew.value = creditsToInputValue(m.crew);
   addForm.elements.plot.value = m.plot || "";
   addForm.elements.notes.value = m.notes || "";
-  document.getElementById("add-movie-dialog-title").textContent = `Edit: ${m.title}`;
-  document.getElementById("add-movie-submit").textContent = "Save changes";
+  document.getElementById("add-movie-dialog-title").textContent = t("form_title_edit", { title: m.title });
+  document.getElementById("add-movie-submit").textContent = t("form_save");
   document.getElementById("add-movie-error").textContent = "";
   addDialog.showModal();
 }
@@ -228,13 +368,15 @@ async function deleteMovieWithConfirm(m) {
   // native dialog — the patched version is async (a Promise), never
   // the synchronous browser primitive, so this must be awaited or the
   // condition below is always truthy regardless of what's clicked.
-  const confirmed = await window.confirm(`Delete "${m.title}"? This cannot be undone.`);
+  const confirmed = await window.confirm(t("delete_confirm", { title: m.title }));
   if (!confirmed) return;
   await invoke("delete_movie", { path: currentPath, id: m.id });
   await loadCollection(currentPath);
 }
 
 async function boot() {
+  applyStaticLabels();
+
   try {
     const version = await invoke("app_version");
     document.getElementById("app-version").textContent = `VideoNojo v${version}`;
@@ -246,6 +388,8 @@ async function boot() {
 
   document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
   document.getElementById("open-collection").addEventListener("click", () => invoke("pick_collection"));
+  document.getElementById("lang-en").addEventListener("click", () => setLang("en"));
+  document.getElementById("lang-fr").addEventListener("click", () => setLang("fr"));
   document.getElementById("group-field").addEventListener("change", (e) => {
     groupField = e.target.value;
     selectedGroup = null;
@@ -261,8 +405,8 @@ async function boot() {
   document.getElementById("add-movie").addEventListener("click", () => {
     editingMovieId = null;
     addForm.reset();
-    document.getElementById("add-movie-dialog-title").textContent = "Add Movie";
-    document.getElementById("add-movie-submit").textContent = "Next…";
+    document.getElementById("add-movie-dialog-title").textContent = t("form_title_add");
+    document.getElementById("add-movie-submit").textContent = t("form_next");
     document.getElementById("add-movie-error").textContent = "";
     addDialog.showModal();
   });

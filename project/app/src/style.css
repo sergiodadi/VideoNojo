@@ -56,6 +56,26 @@ header h1 {
   margin-left: auto;
 }
 
+#lang-toggle {
+  display: flex;
+  gap: 0.2rem;
+}
+
+#lang-toggle button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+}
+
+#lang-toggle button.active {
+  background: #2e4bb0;
+  color: #fff;
+  border-color: #2e4bb0;
+}
+
 dialog {
   border: none;
   border-radius: 6px;
