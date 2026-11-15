@@ -13,6 +13,7 @@
     <span id="file-badge"></span>
     <button id="open-collection" data-i18n="nav_open">Open Collection…</button>
     <button id="add-movie" data-i18n="nav_add">Add Movie…</button>
+    <button id="stats-btn" data-i18n="nav_stats">📊 Statistics</button>
     <span id="lang-toggle">
       <button id="lang-en" type="button">EN</button>
       <button id="lang-fr" type="button">FR</button>
@@ -20,6 +21,7 @@
     <span id="app-version"></span>
   </header>
   <div id="tabs"></div>
+  <div id="azbar"></div>
   <main id="main">
     <aside id="groups">
       <select id="group-field">
@@ -33,6 +35,19 @@
     <div id="splitter-v" title="Drag to resize"></div>
     <div id="right-col">
       <div id="list-pane">
+        <div id="list-toolbar">
+          <select id="sort">
+            <option value="title" data-i18n="opt_sort_title">Title (A→Z)</option>
+            <option value="year_desc" data-i18n="opt_sort_year_desc">Year (newest first)</option>
+            <option value="rating_desc" data-i18n="opt_sort_rating_desc">Rating (highest first)</option>
+            <option value="country" data-i18n="opt_sort_country">Country (A→Z)</option>
+            <option value="date_added_desc" data-i18n="opt_sort_date_added">Date added (newest first)</option>
+          </select>
+          <div id="view-toggle">
+            <button id="view-list" class="active" data-i18n="list_view_list">☰ List</button>
+            <button id="view-grid" data-i18n="list_view_grid">▦ Grid</button>
+          </div>
+        </div>
         <table id="movies">
           <thead>
             <tr>
@@ -44,6 +59,12 @@
           </thead>
           <tbody></tbody>
         </table>
+        <div id="grid-view"></div>
+        <div id="pager">
+          <button id="prev-page" data-i18n="list_prev">‹ Prev.</button>
+          <span id="page-info"></span>
+          <button id="next-page" data-i18n="list_next">Next ›</button>
+        </div>
       </div>
       <div id="splitter-h" title="Drag to resize"></div>
       <aside id="detail">
@@ -52,6 +73,7 @@
       </aside>
     </div>
   </main>
+  <div id="stats-pane"></div>
   <dialog id="add-movie-dialog">
     <form id="add-movie-form" method="dialog">
       <h2 id="add-movie-dialog-title" data-i18n="form_title_add">Add Movie</h2>

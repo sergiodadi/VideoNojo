@@ -76,10 +76,18 @@ function setupResizablePanes() {
 let movies = [];
 let currentDetailId = null;
 let currentPath = null;
+let imagesDir = "";
 let groupField = "genres";
 let selectedGroup = null;
+let selectedLetter = null;
 let editingMovieId = null;
 let currentCollection = null;
+let sortKey = "title";
+let sortAsc = true;
+let viewMode = "list"; // 'list' | 'grid'
+let panel = "library"; // 'library' | 'stats'
+let page = 1;
+const PAGE_SIZE = 60;
 
 // A stable (non-translated) key to group/tab by — a movie with no
 // sub-collection set (ZCOLLECTION is nullable) still needs one to
@@ -106,9 +114,14 @@ function saveState() {
         path: currentPath,
         groupField,
         selectedGroup,
+        selectedLetter,
         currentCollection,
         search: document.getElementById("search").value,
         selectedId: currentDetailId,
+        sortKey,
+        sortAsc,
+        viewMode,
+        page,
       })
     );
   } catch {
@@ -136,14 +149,27 @@ const I18N = {
   en: {
     nav_open: "Open Collection…",
     nav_add: "Add Movie…",
+    nav_stats: "📊 Statistics",
+    nav_back_to_collection: "← Back to collection",
     search_placeholder: "Search by title…",
     count_movies: "{n} movie(s)",
     group_all: "All",
+    azbar_all: "All",
     collection_default: "My Collection",
     opt_group_genres: "Genre",
     opt_group_studios: "Studio",
     opt_group_formats: "Format",
     opt_group_country: "Country",
+    opt_sort_title: "Title (A→Z)",
+    opt_sort_year_desc: "Year (newest first)",
+    opt_sort_rating_desc: "Rating (highest first)",
+    opt_sort_country: "Country (A→Z)",
+    opt_sort_date_added: "Date added (newest first)",
+    list_view_list: "☰ List",
+    list_view_grid: "▦ Grid",
+    list_prev: "‹ Prev.",
+    list_next: "Next ›",
+    list_page_info: "Page {page} of {total}",
     col_title: "Title",
     col_year: "Year",
     col_country: "Country",
@@ -183,18 +209,42 @@ const I18N = {
     add_preview_confirm: "Confirm and add",
     add_preview_new: "{n} new value(s) will be created:",
     add_preview_none: "No new values — every field already exists in this collection.",
+    stats_title: "Statistics — {name}",
+    stats_movies: "{n} movie(s)",
+    stats_no_cover: "{n} with no cover",
+    stats_no_cast: "{n} with no cast",
+    stats_genres: "Genres",
+    stats_studios: "Studios",
+    stats_formats: "Formats",
+    stats_countries: "Countries",
+    stats_by_decade: "By release decade",
+    stats_by_added_year: "By year added",
+    stats_no_data: "No data.",
   },
   fr: {
     nav_open: "Ouvrir une collection…",
     nav_add: "Ajouter un film…",
+    nav_stats: "📊 Statistiques",
+    nav_back_to_collection: "← Retour à la collection",
     search_placeholder: "Rechercher par titre…",
     count_movies: "{n} film(s)",
     group_all: "Tous",
+    azbar_all: "Tout",
     collection_default: "Ma collection",
     opt_group_genres: "Genre",
     opt_group_studios: "Studio",
     opt_group_formats: "Format",
     opt_group_country: "Pays",
+    opt_sort_title: "Titre (A→Z)",
+    opt_sort_year_desc: "Année (plus récent d'abord)",
+    opt_sort_rating_desc: "Note (plus élevée d'abord)",
+    opt_sort_country: "Pays (A→Z)",
+    opt_sort_date_added: "Date d'ajout (plus récent d'abord)",
+    list_view_list: "☰ Liste",
+    list_view_grid: "▦ Grille",
+    list_prev: "‹ Préc.",
+    list_next: "Suiv. ›",
+    list_page_info: "Page {page} / {total}",
     col_title: "Titre",
     col_year: "Année",
     col_country: "Pays",
@@ -234,6 +284,17 @@ const I18N = {
     add_preview_confirm: "Confirmer et ajouter",
     add_preview_new: "{n} nouvelle(s) valeur(s) seront créées :",
     add_preview_none: "Aucune nouvelle valeur — tous les champs existent déjà dans cette collection.",
+    stats_title: "Statistiques — {name}",
+    stats_movies: "{n} film(s)",
+    stats_no_cover: "{n} sans jaquette",
+    stats_no_cast: "{n} sans acteur",
+    stats_genres: "Genres",
+    stats_studios: "Studios",
+    stats_formats: "Formats",
+    stats_countries: "Pays",
+    stats_by_decade: "Par décennie de sortie",
+    stats_by_added_year: "Par année d'ajout",
+    stats_no_data: "Aucune donnée.",
   },
 };
 
@@ -268,6 +329,7 @@ function setLang(newLang) {
   renderGroups();
   render(document.getElementById("search").value);
   if (currentDetailId !== null) showDetail(currentDetailId);
+  if (panel === "stats") renderStats();
 }
 
 function escapeHtml(s) {
@@ -349,10 +411,57 @@ function scopedMovies() {
   return movies.filter((m) => collectionKey(m) === currentCollection);
 }
 
+// First letter used by the A-Z quick-jump bar — non-letters (numbers,
+// symbols, accented-but-not-matched edge cases) all bucket under "#".
+function letterOf(value) {
+  const ch = (value || "").trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : "#";
+}
+
+function computeAvailableLetters() {
+  const set = new Set();
+  for (const m of scopedMovies()) {
+    for (const v of groupValues(m, groupField)) {
+      if (v) set.add(letterOf(v));
+    }
+  }
+  return [...set].sort();
+}
+
+function renderAzBar() {
+  const el = document.getElementById("azbar");
+  el.innerHTML = "";
+  const all = document.createElement("button");
+  all.textContent = t("azbar_all");
+  all.className = selectedLetter === null ? "active" : "";
+  all.addEventListener("click", () => {
+    selectedLetter = null;
+    renderGroups();
+    saveState();
+  });
+  el.appendChild(all);
+  for (const letter of computeAvailableLetters()) {
+    const btn = document.createElement("button");
+    btn.textContent = letter;
+    btn.className = selectedLetter === letter ? "active" : "";
+    btn.addEventListener("click", () => {
+      selectedLetter = letter;
+      renderGroups();
+      saveState();
+    });
+    el.appendChild(btn);
+  }
+}
+
+// Narrows which group values are listed below (not the movie list
+// itself — picking a specific group from the narrowed list is still
+// what filters the movies), same two-step behavior as MusicNojo/
+// BookNojo's own A-Z bar.
 function computeGroups() {
   const counts = new Map();
   for (const m of scopedMovies()) {
     for (const v of groupValues(m, groupField)) {
+      if (selectedLetter && letterOf(v) !== selectedLetter) continue;
       counts.set(v, (counts.get(v) || 0) + 1);
     }
   }
@@ -360,6 +469,7 @@ function computeGroups() {
 }
 
 function renderGroups() {
+  renderAzBar();
   const groups = computeGroups();
   const allClass = selectedGroup === null ? "active" : "";
   const rows = groups
@@ -381,6 +491,7 @@ function renderGroups() {
   document.querySelectorAll("#group-list .group-row").forEach((el) =>
     el.addEventListener("click", () => {
       selectedGroup = el.dataset.value || null;
+      page = 1;
       renderGroups();
       render(document.getElementById("search").value);
       saveState();
@@ -388,14 +499,51 @@ function renderGroups() {
   );
 }
 
+// Each preset maps to one of the three underlying comparable fields —
+// the dropdown's "year"/"rating"/"date added" presets aren't separate
+// sort keys, they're just a direction on top of the matching column.
+const SORT_PRESETS = {
+  title: { key: "title", asc: true },
+  year_desc: { key: "release_year", asc: false },
+  rating_desc: { key: "rating", asc: false },
+  country: { key: "country", asc: true },
+  date_added_desc: { key: "date_added", asc: false },
+};
+
+function syncSortDropdown() {
+  const match = Object.entries(SORT_PRESETS).find(([, p]) => p.key === sortKey && p.asc === sortAsc);
+  if (match) document.getElementById("sort").value = match[0];
+}
+
+function sortRows(rows) {
+  rows.sort((a, b) => {
+    const va = Array.isArray(a[sortKey]) ? a[sortKey].join(", ") : a[sortKey];
+    const vb = Array.isArray(b[sortKey]) ? b[sortKey].join(", ") : b[sortKey];
+    const cmp =
+      typeof va === "number" || typeof vb === "number"
+        ? (va ?? -Infinity) - (vb ?? -Infinity)
+        : String(va ?? "").localeCompare(String(vb ?? ""));
+    return sortAsc ? cmp : -cmp;
+  });
+  return rows;
+}
+
 function render(filterText) {
   const filter = (filterText || "").toLowerCase();
-  const rows = scopedMovies()
-    .filter((m) => m.title.toLowerCase().includes(filter))
-    .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
+  const rows = sortRows(
+    scopedMovies()
+      .filter((m) => m.title.toLowerCase().includes(filter))
+      .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup))
+  );
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  page = Math.min(Math.max(1, page), totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
+
   document.getElementById("count").textContent = t("count_movies", { n: rows.length });
   const tbody = document.querySelector("#movies tbody");
-  tbody.innerHTML = rows
+  tbody.innerHTML = pageRows
     .map(
       (m) => `
       <tr data-id="${m.id}">
@@ -409,6 +557,46 @@ function render(filterText) {
   tbody.querySelectorAll("tr").forEach((tr) =>
     tr.addEventListener("click", () => {
       showDetail(Number(tr.dataset.id));
+      saveState();
+    })
+  );
+
+  renderGridView(pageRows);
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+  document.getElementById("page-info").textContent = t("list_page_info", { page, total: totalPages });
+  document.getElementById("prev-page").disabled = page <= 1;
+  document.getElementById("next-page").disabled = page >= totalPages;
+}
+
+// The WebView's security sandbox blocks raw file:// loads, so cover
+// images go through Tauri's asset protocol instead (only serves paths
+// explicitly granted via asset_protocol_scope — see src-tauri/lib.rs).
+function coverSrc(filename) {
+  if (!filename || !imagesDir) return null;
+  return window.__TAURI__.core.convertFileSrc(`${imagesDir}/${filename}`);
+}
+
+function renderGridView(rows) {
+  const grid = document.getElementById("grid-view");
+  grid.innerHTML = rows
+    .map((m) => {
+      const src = coverSrc(m.front_cover);
+      const thumb = src
+        ? `<img class="thumb" loading="lazy" src="${src}" alt="">`
+        : `<div class="thumb"></div>`;
+      return `<div class="grid-tile" data-id="${m.id}">
+        ${thumb}
+        <div class="t">${escapeHtml(m.title)}</div>
+        <div class="y">${escapeHtml(m.release_year)}</div>
+      </div>`;
+    })
+    .join("");
+  grid.querySelectorAll(".grid-tile").forEach((tile) =>
+    tile.addEventListener("click", () => {
+      showDetail(Number(tile.dataset.id));
       saveState();
     })
   );
@@ -482,7 +670,10 @@ async function loadCollection(path) {
   const resp = await invoke("list_movies", { path });
   movies = resp.movies;
   currentPath = resp.path;
+  imagesDir = resp.images_dir;
   selectedGroup = null;
+  selectedLetter = null;
+  page = 1;
   currentCollection = null;
   document.getElementById("file-badge").textContent = fileBadge(resp.path);
   document.getElementById("detail-content").innerHTML = "";
@@ -492,6 +683,7 @@ async function loadCollection(path) {
   renderGroups();
   render(document.getElementById("search").value);
   populateDatalists();
+  if (panel === "stats") renderStats();
 }
 
 function listFromCsv(s) {
@@ -569,6 +761,97 @@ async function deleteMovieWithConfirm(m) {
   await loadCollection(currentPath);
 }
 
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById("list-pane").classList.toggle("view-grid", mode === "grid");
+  document.getElementById("view-list").classList.toggle("active", mode === "list");
+  document.getElementById("view-grid").classList.toggle("active", mode === "grid");
+  saveState();
+}
+
+// --- Statistics -------------------------------------------------------
+function computeStats() {
+  const scoped = scopedMovies();
+  const tally = (getter) => {
+    const m = new Map();
+    for (const movie of scoped) {
+      for (const v of getter(movie)) {
+        if (v) m.set(v, (m.get(v) || 0) + 1);
+      }
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const decades = new Map();
+  for (const movie of scoped) {
+    const y = parseInt(movie.release_year, 10);
+    if (!y) continue;
+    const d = Math.floor(y / 10) * 10;
+    decades.set(d, (decades.get(d) || 0) + 1);
+  }
+  const addedYears = new Map();
+  for (const movie of scoped) {
+    if (!movie.date_added) continue;
+    const y = movie.date_added.slice(0, 4);
+    addedYears.set(y, (addedYears.get(y) || 0) + 1);
+  }
+  return {
+    totalMovies: scoped.length,
+    noCover: scoped.filter((m) => !m.front_cover).length,
+    noCast: scoped.filter((m) => !(m.cast && m.cast.length)).length,
+    genres: tally((m) => m.genres || []),
+    studios: tally((m) => m.studios || []),
+    formats: tally((m) => m.formats || []),
+    countries: tally((m) => (m.country ? [m.country] : [])),
+    decades: [...decades.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => [`${d}s`, c]),
+    addedYears: [...addedYears.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+  };
+}
+
+function barList(title, entries, limit) {
+  const top = limit ? entries.slice(0, limit) : entries;
+  const max = top.reduce((m, [, c]) => Math.max(m, c), 1);
+  const rows = top
+    .map(
+      ([label, count]) => `
+    <div class="stat-row">
+      <span class="label">${escapeHtml(label)}</span>
+      <span class="bar-wrap"><span class="bar" style="width:${((count / max) * 100).toFixed(1)}%"></span></span>
+      <span class="val">${count}</span>
+    </div>`
+    )
+    .join("");
+  return `<div class="stat-block"><h3>${escapeHtml(title)}</h3>${rows || `<p class="stat-empty">${escapeHtml(t("stats_no_data"))}</p>`}</div>`;
+}
+
+function renderStats() {
+  const s = computeStats();
+  document.getElementById("stats-pane").innerHTML = `
+    <div class="stats-wrap">
+      <h2>${escapeHtml(t("stats_title", { name: collectionLabel(currentCollection) }))}</h2>
+      <div class="stat-summary">
+        <span>${t("stats_movies", { n: `<strong>${s.totalMovies}</strong>` })}</span>
+        <span>${t("stats_no_cover", { n: `<strong>${s.noCover}</strong>` })}</span>
+        <span>${t("stats_no_cast", { n: `<strong>${s.noCast}</strong>` })}</span>
+      </div>
+      <div class="stat-grid">
+        ${barList(t("stats_genres"), s.genres, 15)}
+        ${barList(t("stats_studios"), s.studios, 10)}
+        ${barList(t("stats_formats"), s.formats)}
+        ${barList(t("stats_countries"), s.countries)}
+        ${barList(t("stats_by_decade"), s.decades)}
+        ${barList(t("stats_by_added_year"), s.addedYears)}
+      </div>
+    </div>`;
+}
+
+function setPanel(next) {
+  panel = next;
+  document.body.classList.toggle("panel-stats", panel === "stats");
+  document.getElementById("stats-btn").classList.toggle("active", panel === "stats");
+  document.getElementById("stats-btn").textContent = panel === "stats" ? t("nav_back_to_collection") : t("nav_stats");
+  if (panel === "stats") renderStats();
+}
+
 async function boot() {
   applyStaticLabels();
   setupResizablePanes();
@@ -590,6 +873,14 @@ async function boot() {
     }
     currentCollection = saved.currentCollection ?? currentCollection;
     selectedGroup = saved.selectedGroup ?? null;
+    selectedLetter = saved.selectedLetter ?? null;
+    if (saved.sortKey) {
+      sortKey = saved.sortKey;
+      sortAsc = !!saved.sortAsc;
+      syncSortDropdown();
+    }
+    if (saved.viewMode === "grid") setViewMode("grid");
+    page = saved.page || 1;
     if (saved.search) document.getElementById("search").value = saved.search;
     renderTabs();
     renderGroups();
@@ -600,6 +891,7 @@ async function boot() {
   }
 
   document.getElementById("search").addEventListener("input", (e) => {
+    page = 1;
     render(e.target.value);
     saveState();
   });
@@ -609,12 +901,50 @@ async function boot() {
   document.getElementById("group-field").addEventListener("change", (e) => {
     groupField = e.target.value;
     selectedGroup = null;
+    selectedLetter = null;
+    page = 1;
     renderGroups();
     render(document.getElementById("search").value);
     saveState();
   });
   await listen("collection-picked", (event) => {
     loadCollection(event.payload).then(saveState);
+  });
+
+  const sortEl = document.getElementById("sort");
+  sortEl.addEventListener("change", () => {
+    const preset = SORT_PRESETS[sortEl.value];
+    sortKey = preset.key;
+    sortAsc = preset.asc;
+    page = 1;
+    render(document.getElementById("search").value);
+    saveState();
+  });
+  document.querySelectorAll("#movies th").forEach((th) =>
+    th.addEventListener("click", () => {
+      const k = th.dataset.k;
+      sortAsc = sortKey === k ? !sortAsc : true;
+      sortKey = k;
+      page = 1;
+      syncSortDropdown();
+      render(document.getElementById("search").value);
+      saveState();
+    })
+  );
+  document.getElementById("view-list").addEventListener("click", () => setViewMode("list"));
+  document.getElementById("view-grid").addEventListener("click", () => setViewMode("grid"));
+  document.getElementById("prev-page").addEventListener("click", () => {
+    page--;
+    render(document.getElementById("search").value);
+    saveState();
+  });
+  document.getElementById("next-page").addEventListener("click", () => {
+    page++;
+    render(document.getElementById("search").value);
+    saveState();
+  });
+  document.getElementById("stats-btn").addEventListener("click", () => {
+    setPanel(panel === "stats" ? "library" : "stats");
   });
 
   const addDialog = document.getElementById("add-movie-dialog");
