@@ -183,6 +183,13 @@ const I18N = {
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
     detail_field_formats: "Format(s)",
+    detail_field_regions: "Region(s)",
+    detail_field_screen_ratios: "Screen ratio(s)",
+    detail_field_subtitles: "Subtitle(s)",
+    detail_field_audio_tracks: "Audio track(s)",
+    detail_field_hdr: "HDR",
+    detail_field_extras: "Extra(s)",
+    detail_field_tags: "Tag(s)",
     detail_field_cast: "Cast",
     detail_field_crew: "Crew",
     detail_field_rating: "Rating",
@@ -200,6 +207,13 @@ const I18N = {
     form_label_genres: "Genre(s), comma-separated",
     form_label_studios: "Studio(s), comma-separated",
     form_label_formats: "Format(s), comma-separated",
+    form_label_regions: "Region(s), comma-separated",
+    form_label_screen_ratios: "Screen ratio(s), comma-separated",
+    form_label_subtitles: "Subtitle(s), comma-separated",
+    form_label_audio_tracks: "Audio track(s), comma-separated",
+    form_label_hdr: "HDR, comma-separated",
+    form_label_extras: "Extra(s), comma-separated",
+    form_label_tags: "Tag(s), comma-separated",
     form_label_actors: "Actor(s), comma-separated",
     form_label_crew: 'Crew, comma-separated ("Name" or "Name:Role")',
     form_label_plot: "Plot",
@@ -260,6 +274,13 @@ const I18N = {
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
     detail_field_formats: "Format(s)",
+    detail_field_regions: "Région(s)",
+    detail_field_screen_ratios: "Format(s) d'écran",
+    detail_field_subtitles: "Sous-titre(s)",
+    detail_field_audio_tracks: "Piste(s) audio",
+    detail_field_hdr: "HDR",
+    detail_field_extras: "Bonus",
+    detail_field_tags: "Étiquette(s)",
     detail_field_cast: "Acteurs",
     detail_field_crew: "Équipe",
     detail_field_rating: "Note",
@@ -277,6 +298,13 @@ const I18N = {
     form_label_genres: "Genre(s), séparés par des virgules",
     form_label_studios: "Studio(s), séparés par des virgules",
     form_label_formats: "Format(s), séparés par des virgules",
+    form_label_regions: "Région(s), séparées par des virgules",
+    form_label_screen_ratios: "Format(s) d'écran, séparés par des virgules",
+    form_label_subtitles: "Sous-titre(s), séparés par des virgules",
+    form_label_audio_tracks: "Piste(s) audio, séparées par des virgules",
+    form_label_hdr: "HDR, séparés par des virgules",
+    form_label_extras: "Bonus, séparés par des virgules",
+    form_label_tags: "Étiquette(s), séparées par des virgules",
     form_label_actors: "Acteur(s), séparés par des virgules",
     form_label_crew: 'Équipe, séparée par des virgules ("Nom" ou "Nom:Rôle")',
     form_label_plot: "Synopsis",
@@ -620,6 +648,13 @@ function showDetail(id) {
       ${roleList(t("detail_field_genres"), m.genres)}
       ${roleList(t("detail_field_studios"), m.studios)}
       ${roleList(t("detail_field_formats"), m.formats)}
+      ${roleList(t("detail_field_regions"), m.regions)}
+      ${roleList(t("detail_field_screen_ratios"), m.screen_ratios)}
+      ${roleList(t("detail_field_subtitles"), m.subtitles)}
+      ${roleList(t("detail_field_audio_tracks"), m.audio_tracks)}
+      ${roleList(t("detail_field_hdr"), m.hdr)}
+      ${roleList(t("detail_field_extras"), m.extras)}
+      ${roleList(t("detail_field_tags"), m.tags)}
       ${roleList(t("detail_field_cast"), (m.cast || []).map((c) => c.name))}
       ${creditList(t("detail_field_crew"), m.crew)}
       ${field(t("detail_field_rating"), m.rating != null ? String(m.rating) : "")}
@@ -653,6 +688,13 @@ const DATALIST_FIELDS = [
   { datalist: "dl-genres", values: (m) => m.genres || [] },
   { datalist: "dl-studios", values: (m) => m.studios || [] },
   { datalist: "dl-formats", values: (m) => m.formats || [] },
+  { datalist: "dl-regions", values: (m) => m.regions || [] },
+  { datalist: "dl-screen_ratios", values: (m) => m.screen_ratios || [] },
+  { datalist: "dl-subtitles", values: (m) => m.subtitles || [] },
+  { datalist: "dl-audio_tracks", values: (m) => m.audio_tracks || [] },
+  { datalist: "dl-hdr", values: (m) => m.hdr || [] },
+  { datalist: "dl-extras", values: (m) => m.extras || [] },
+  { datalist: "dl-tags", values: (m) => m.tags || [] },
   { datalist: "dl-actors", values: (m) => (m.cast || []).map((c) => c.name) },
   { datalist: "dl-crew", values: (m) => (m.crew || []).map((c) => c.name) },
 ];
@@ -670,24 +712,35 @@ function populateDatalists() {
   }
 }
 
+// Wrapped in try/catch so a stale saved path (e.g. a collection that
+// was moved or deleted since the last launch) reports an error
+// instead of throwing out of boot() — an uncaught rejection here
+// would skip every event listener boot() wires up afterward, leaving
+// every button in the header permanently dead with no way to recover
+// short of clearing localStorage by hand. Same shape as MusicNojo's
+// own loadCollection.
 async function loadCollection(path) {
-  const resp = await invoke("list_movies", { path });
-  movies = resp.movies;
-  currentPath = resp.path;
-  imagesDir = resp.images_dir;
-  selectedGroup = null;
-  selectedLetter = null;
-  page = 1;
-  currentCollection = null;
-  document.getElementById("file-badge").textContent = fileBadge(resp.path);
-  document.getElementById("detail-content").innerHTML = "";
-  document.getElementById("detail-empty").hidden = false;
-  currentDetailId = null;
-  renderTabs();
-  renderGroups();
-  render(document.getElementById("search").value);
-  populateDatalists();
-  if (panel === "stats") renderStats();
+  try {
+    const resp = await invoke("list_movies", { path });
+    movies = resp.movies;
+    currentPath = resp.path;
+    imagesDir = resp.images_dir;
+    selectedGroup = null;
+    selectedLetter = null;
+    page = 1;
+    currentCollection = null;
+    document.getElementById("file-badge").textContent = fileBadge(resp.path);
+    document.getElementById("detail-content").innerHTML = "";
+    document.getElementById("detail-empty").hidden = false;
+    currentDetailId = null;
+    renderTabs();
+    renderGroups();
+    render(document.getElementById("search").value);
+    populateDatalists();
+    if (panel === "stats") renderStats();
+  } catch (err) {
+    document.getElementById("count").textContent = `Error: ${err}`;
+  }
 }
 
 function listFromCsv(s) {
@@ -707,6 +760,13 @@ function fieldsFromAddForm(form) {
     genres: listFromCsv(data.get("genres")),
     studios: listFromCsv(data.get("studios")),
     formats: listFromCsv(data.get("formats")),
+    regions: listFromCsv(data.get("regions")),
+    screen_ratios: listFromCsv(data.get("screen_ratios")),
+    subtitles: listFromCsv(data.get("subtitles")),
+    audio_tracks: listFromCsv(data.get("audio_tracks")),
+    hdr: listFromCsv(data.get("hdr")),
+    extras: listFromCsv(data.get("extras")),
+    tags: listFromCsv(data.get("tags")),
     actors: listFromCsv(data.get("actors")),
     crew: listFromCsv(data.get("crew")),
     plot: data.get("plot") || null,
@@ -744,6 +804,13 @@ function openEditForm(m) {
   addForm.elements.genres.value = (m.genres || []).join(", ");
   addForm.elements.studios.value = (m.studios || []).join(", ");
   addForm.elements.formats.value = (m.formats || []).join(", ");
+  addForm.elements.regions.value = (m.regions || []).join(", ");
+  addForm.elements.screen_ratios.value = (m.screen_ratios || []).join(", ");
+  addForm.elements.subtitles.value = (m.subtitles || []).join(", ");
+  addForm.elements.audio_tracks.value = (m.audio_tracks || []).join(", ");
+  addForm.elements.hdr.value = (m.hdr || []).join(", ");
+  addForm.elements.extras.value = (m.extras || []).join(", ");
+  addForm.elements.tags.value = (m.tags || []).join(", ");
   addForm.elements.actors.value = (m.cast || []).map((c) => c.name).join(", ");
   addForm.elements.crew.value = creditsToInputValue(m.crew);
   addForm.elements.plot.value = m.plot || "";
@@ -1042,6 +1109,13 @@ async function boot() {
           replace_genres: true,
           replace_studios: true,
           replace_formats: true,
+          replace_regions: true,
+          replace_screen_ratios: true,
+          replace_subtitles: true,
+          replace_audio_tracks: true,
+          replace_hdr: true,
+          replace_extras: true,
+          replace_tags: true,
           replace_actors: true,
           replace_crew: true,
         };

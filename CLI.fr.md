@@ -119,8 +119,9 @@ de plan, dans une seule transaction. Pouvoir relire le plan avant
 `add-plan` accepte chaque champ scalaire (`--title`,
 `--title-original`, `--release-year`, `--rating`, `--notes`, `--plot`,
 `--upc`, `--country`, `--collection`), et chaque champ répétable
-(`--genre`, `--studio`, `--format`, `--actor`, `--crew`, une
-occurrence par valeur). `--collection` doit nommer une sous-collection
+(`--genre`, `--studio`, `--format`, `--region`, `--screen-ratio`,
+`--subtitle`, `--audio-track`, `--hdr`, `--extra`, `--tag`, `--actor`,
+`--crew`, une occurrence par valeur). `--collection` doit nommer une sous-collection
 déjà existante — elle n'est jamais créée. Une entrée `--crew` est soit
 `"Nom"`, soit `"Nom:Rôle"` (ex. `"Jane Doe:Director"`) — les rôles
 reconnus sont Director, Producer, Writer, Camera, Music, User Credit
@@ -147,9 +148,11 @@ film vers une autre sous-collection déjà existante — l'application
 elle-même ne propose pas encore cela, voir [`MANUAL.fr.md`](MANUAL.fr.md)).
 Un champ répétable n'est **remplacé** que si son option `--replace-*`
 correspondante est passée (`--replace-genres`, `--replace-studios`,
-`--replace-formats`, `--replace-actors`, `--replace-crew`) — sinon les
-valeurs passées pour ce champ sont ignorées et les valeurs existantes
-restent inchangées.
+`--replace-formats`, `--replace-regions`, `--replace-screen-ratios`,
+`--replace-subtitles`, `--replace-audio-tracks`, `--replace-hdr`,
+`--replace-extras`, `--replace-tags`, `--replace-actors`,
+`--replace-crew`) — sinon les valeurs passées pour ce champ sont
+ignorées et les valeurs existantes restent inchangées.
 
 ### Supprimer — `delete-plan`
 
@@ -159,12 +162,13 @@ restent inchangées.
 ```
 
 Supprime le film et tout ce qui lui est spécifique (ses lignes de
-liaison distribution/équipe technique/genre/studio/format) — jamais
-les lignes de référence partagées qu'il utilisait (un genre, un
-studio, un acteur...), puisque d'autres films peuvent encore les
-utiliser. Ne touche pas aux disques, épisodes, liens, étiquettes,
-région, format d'écran, sous-titres, HDR, bonus ou pistes audio —
-rien de tout cela n'est modélisé nulle part encore dans ce projet.
+liaison distribution/équipe technique/genre/studio/format/région/
+format d'écran/sous-titres/pistes audio/HDR/bonus/étiquettes) —
+jamais les lignes de référence partagées qu'il utilisait (un genre,
+un studio, un acteur...), puisque d'autres films peuvent encore les
+utiliser. Ne touche pas aux disques, épisodes, coffrets, séries ou
+liens — rien de tout cela n'est modélisé nulle part encore dans ce
+projet.
 
 ### Jaquettes — `set-cover`
 

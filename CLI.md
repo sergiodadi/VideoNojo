@@ -113,8 +113,9 @@ is the point — nothing is written until you do.
 `add-plan` accepts every scalar field (`--title`, `--title-original`,
 `--release-year`, `--rating`, `--notes`, `--plot`, `--upc`,
 `--country`, `--collection`), and every repeatable field (`--genre`,
-`--studio`, `--format`, `--actor`, `--crew`, one occurrence per
-value). `--collection` must name an already-existing sub-collection —
+`--studio`, `--format`, `--region`, `--screen-ratio`, `--subtitle`,
+`--audio-track`, `--hdr`, `--extra`, `--tag`, `--actor`, `--crew`, one
+occurrence per value). `--collection` must name an already-existing sub-collection —
 it is never created. A `--crew` entry is either `"Name"` or
 `"Name:Role"` (e.g. `"Jane Doe:Director"`) — known roles are Director,
 Producer, Writer, Camera, Music, User Credit 1, User Credit 2, and
@@ -140,8 +141,11 @@ already-existing sub-collection — the application itself doesn't
 expose this yet, see [`MANUAL.md`](MANUAL.md)). A repeatable field is
 only **replaced** if you pass its matching `--replace-*` flag
 (`--replace-genres`, `--replace-studios`, `--replace-formats`,
-`--replace-actors`, `--replace-crew`) — otherwise the values you pass
-are ignored for that field and the existing ones are left untouched.
+`--replace-regions`, `--replace-screen-ratios`, `--replace-subtitles`,
+`--replace-audio-tracks`, `--replace-hdr`, `--replace-extras`,
+`--replace-tags`, `--replace-actors`, `--replace-crew`) — otherwise
+the values you pass are ignored for that field and the existing ones
+are left untouched.
 
 ### Deleting — `delete-plan`
 
@@ -151,10 +155,10 @@ are ignored for that field and the existing ones are left untouched.
 ```
 
 Removes the movie and everything specific to it (its cast/crew/genre/
-studio/format link rows) — never the shared lookup rows it referenced
-(a genre, a studio, an actor...), since other movies may still use
-them. Doesn't touch discs, episodes, links, tags, region, screen
-ratio, subtitle, HDR, extra or audio track data — none of that is
+studio/format/region/screen-ratio/subtitle/audio-track/HDR/extra/tag
+link rows) — never the shared lookup rows it referenced (a genre, a
+studio, an actor...), since other movies may still use them. Doesn't
+touch discs, episodes, box sets, series or links — none of that is
 modeled anywhere in this project yet.
 
 ### Covers — `set-cover`

@@ -44,8 +44,9 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   switch between them, scoping the list and groups to whichever is
   active.
 - **Movie detail card**: title, original title, release year, country,
-  genres, studios, formats, cast, crew (with role, when known), rating,
-  notes, plot, and date added.
+  genres, studios, formats, regions, screen ratios, subtitles, audio
+  tracks, HDR, extras, tags, cast, crew (with role, when known),
+  rating, notes, plot, and date added.
 - **Statistics panel** (the "📊 Statistics" button in the header):
   total movie count, how many have no cover or no cast, and bar charts
   of genres, studios, formats, countries, release decade, and year
@@ -57,10 +58,11 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 ## 3. Adding, editing, deleting a movie
 
 - **Add a movie**: a form covering title, original title, release
-  year, rating, country, genres, studios, formats, actors and crew
+  year, rating, country, genres, studios, formats, regions, screen
+  ratios, subtitles, audio tracks, HDR, extras, tags, actors and crew
   (comma-separated; a crew entry can be `"Name"` or `"Name:Role"`),
   plot and notes. Before anything is written, a preview lists every
-  country/genre/studio/format/actor/crew value that was typed, with a
+  value typed into one of those comma-separated fields, with a
   "new" badge on the ones that don't already exist in the collection
   (catching a typo before it becomes a permanent duplicate entry) —
   confirming it is what actually adds the movie. The new movie joins
@@ -111,10 +113,11 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   places it in whichever tab is active. The `vc_add` CLI's
   `edit-plan --collection <name>` can move an existing movie to a
   different already-existing sub-collection; see [`CLI.md`](CLI.md).
-- Discs, episodes, box sets, series, links, tags, region, screen
-  ratio, subtitle, HDR, extra, or audio track data — Movie Collector's
-  own richer structure beyond a flat movie record — isn't modeled
-  anywhere in VideoNojo yet, read or write.
+- Discs, episodes, box sets, series, or links — Movie Collector's own
+  richer structure beyond a flat movie record — isn't modeled anywhere
+  in VideoNojo yet, read or write. (Region, screen ratio, subtitle,
+  audio track, HDR, extra, and tag — the other such structures — are
+  now modeled, read and write, since v0.25.0.)
 - Online lookup to pre-fill a record from a barcode or a database
   match — not started.
 - Not yet code-signed/notarized with an Apple developer account — no

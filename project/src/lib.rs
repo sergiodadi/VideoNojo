@@ -70,6 +70,13 @@ pub struct Movie {
     pub genres: Vec<String>,
     pub studios: Vec<String>,
     pub formats: Vec<String>,
+    pub regions: Vec<String>,
+    pub screen_ratios: Vec<String>,
+    pub subtitles: Vec<String>,
+    pub audio_tracks: Vec<String>,
+    pub hdr: Vec<String>,
+    pub extras: Vec<String>,
+    pub tags: Vec<String>,
     pub country: Option<String>,
     pub condition: Option<String>,
     pub packaging: Option<String>,
@@ -187,6 +194,13 @@ struct Lookups {
     genres: HashMap<i64, Vec<String>>,
     studios: HashMap<i64, Vec<String>>,
     formats: HashMap<i64, Vec<String>>,
+    regions: HashMap<i64, Vec<String>>,
+    screen_ratios: HashMap<i64, Vec<String>>,
+    subtitles: HashMap<i64, Vec<String>>,
+    audio_tracks: HashMap<i64, Vec<String>>,
+    hdr: HashMap<i64, Vec<String>>,
+    extras: HashMap<i64, Vec<String>>,
+    tags: HashMap<i64, Vec<String>>,
 }
 
 // ZCOLLECTION stores ZTITLE directly, no delegate hop — same shape as
@@ -217,6 +231,19 @@ fn load_lookups(conn: &Connection) -> Result<Lookups> {
         genres: load_many_to_many(conn, "Z_20MOVIES", "Z_7MOVIES3", "Z_20GENRES", "ZGENRE")?,
         studios: load_many_to_many(conn, "Z_7STUDIOS", "Z_7MOVIES7", "Z_41STUDIOS", "ZSTUDIO")?,
         formats: load_many_to_many(conn, "Z_19MOVIES", "Z_7MOVIES2", "Z_19FORMATS", "ZFORMAT")?,
+        regions: load_many_to_many(conn, "Z_7REGIONS", "Z_7MOVIES8", "Z_35REGIONS", "ZREGION")?,
+        screen_ratios: load_many_to_many(
+            conn,
+            "Z_7SCREENRATIOS",
+            "Z_7MOVIES6",
+            "Z_36SCREENRATIOS",
+            "ZSCREENRATIO",
+        )?,
+        subtitles: load_many_to_many(conn, "Z_7SUBTITLES", "Z_7MOVIES5", "Z_42SUBTITLES", "ZSUBTITLE")?,
+        audio_tracks: load_many_to_many(conn, "Z_3MOVIES", "Z_7MOVIES", "Z_3AUDIOTRACKS", "ZAUDIOTRACK")?,
+        hdr: load_many_to_many(conn, "Z_21MOVIES", "Z_7MOVIES4", "Z_21HDRS", "ZHDR")?,
+        extras: load_many_to_many(conn, "Z_17MOVIES", "Z_7MOVIES1", "Z_17EXTRAS", "ZEXTRA")?,
+        tags: load_many_to_many(conn, "Z_6TAGS", "Z_6COLLECTIBLES1", "Z_43TAGS", "ZTAG")?,
     })
 }
 
@@ -307,6 +334,13 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
                 genres: lookups.genres.get(&id).cloned().unwrap_or_default(),
                 studios: lookups.studios.get(&id).cloned().unwrap_or_default(),
                 formats: lookups.formats.get(&id).cloned().unwrap_or_default(),
+                regions: lookups.regions.get(&id).cloned().unwrap_or_default(),
+                screen_ratios: lookups.screen_ratios.get(&id).cloned().unwrap_or_default(),
+                subtitles: lookups.subtitles.get(&id).cloned().unwrap_or_default(),
+                audio_tracks: lookups.audio_tracks.get(&id).cloned().unwrap_or_default(),
+                hdr: lookups.hdr.get(&id).cloned().unwrap_or_default(),
+                extras: lookups.extras.get(&id).cloned().unwrap_or_default(),
+                tags: lookups.tags.get(&id).cloned().unwrap_or_default(),
                 country: country_pk.and_then(|pk| lookups.countries.get(&pk).cloned()),
                 condition: condition_pk.and_then(|pk| lookups.conditions.get(&pk).cloned()),
                 packaging: packaging_pk.and_then(|pk| lookups.packagings.get(&pk).cloned()),
@@ -391,6 +425,20 @@ pub struct MovieFields {
     pub studios: Vec<String>,
     #[arg(long = "format")]
     pub formats: Vec<String>,
+    #[arg(long = "region")]
+    pub regions: Vec<String>,
+    #[arg(long = "screen-ratio")]
+    pub screen_ratios: Vec<String>,
+    #[arg(long = "subtitle")]
+    pub subtitles: Vec<String>,
+    #[arg(long = "audio-track")]
+    pub audio_tracks: Vec<String>,
+    #[arg(long = "hdr")]
+    pub hdr: Vec<String>,
+    #[arg(long = "extra")]
+    pub extras: Vec<String>,
+    #[arg(long = "tag")]
+    pub tags: Vec<String>,
     #[arg(long = "actor")]
     pub actors: Vec<String>,
     /// Crew names only for now — `ZROLEID` has no label anywhere in
@@ -635,6 +683,13 @@ pub fn preview_add_movie(conn: &Connection, fields: &MovieFields) -> Result<AddM
         ("Genre", "ZGENRE", &fields.genres),
         ("Studio", "ZSTUDIO", &fields.studios),
         ("Format", "ZFORMAT", &fields.formats),
+        ("Region", "ZREGION", &fields.regions),
+        ("Screen ratio", "ZSCREENRATIO", &fields.screen_ratios),
+        ("Subtitle", "ZSUBTITLE", &fields.subtitles),
+        ("Audio track", "ZAUDIOTRACK", &fields.audio_tracks),
+        ("HDR", "ZHDR", &fields.hdr),
+        ("Extra", "ZEXTRA", &fields.extras),
+        ("Tag", "ZTAG", &fields.tags),
     ] {
         for name in names {
             resolved.push(ResolvedField {
@@ -703,6 +758,41 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
         .iter()
         .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZFORMAT", "Format", name, &mut create_sql))
         .collect::<Result<Vec<_>>>()?;
+    let region_pks = fields
+        .regions
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZREGION", "Region", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let screen_ratio_pks = fields
+        .screen_ratios
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZSCREENRATIO", "ScreenRatio", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let subtitle_pks = fields
+        .subtitles
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZSUBTITLE", "Subtitle", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let audio_track_pks = fields
+        .audio_tracks
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZAUDIOTRACK", "AudioTrack", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let hdr_pks = fields
+        .hdr
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZHDR", "HDR", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let extra_pks = fields
+        .extras
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZEXTRA", "Extra", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
+    let tag_pks = fields
+        .tags
+        .iter()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZTAG", "Tag", name, &mut create_sql))
+        .collect::<Result<Vec<_>>>()?;
     let actor_pks = fields
         .actors
         .iter()
@@ -764,6 +854,41 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
             "INSERT INTO Z_19MOVIES (Z_19FORMATS, Z_7MOVIES2) VALUES ({pk}, {movie_pk});"
         ));
     }
+    for pk in &region_pks {
+        statements.push(format!(
+            "INSERT INTO Z_7REGIONS (Z_35REGIONS, Z_7MOVIES8) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &screen_ratio_pks {
+        statements.push(format!(
+            "INSERT INTO Z_7SCREENRATIOS (Z_36SCREENRATIOS, Z_7MOVIES6) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &subtitle_pks {
+        statements.push(format!(
+            "INSERT INTO Z_7SUBTITLES (Z_42SUBTITLES, Z_7MOVIES5) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &audio_track_pks {
+        statements.push(format!(
+            "INSERT INTO Z_3MOVIES (Z_3AUDIOTRACKS, Z_7MOVIES) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &hdr_pks {
+        statements.push(format!(
+            "INSERT INTO Z_21MOVIES (Z_21HDRS, Z_7MOVIES4) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &extra_pks {
+        statements.push(format!(
+            "INSERT INTO Z_17MOVIES (Z_17EXTRAS, Z_7MOVIES1) VALUES ({pk}, {movie_pk});"
+        ));
+    }
+    for pk in &tag_pks {
+        statements.push(format!(
+            "INSERT INTO Z_6TAGS (Z_43TAGS, Z_6COLLECTIBLES1) VALUES ({pk}, {movie_pk});"
+        ));
+    }
 
     let cast_ent = entity_id(conn, "Cast")?;
     for (rank, pk) in actor_pks.iter().enumerate() {
@@ -812,6 +937,20 @@ pub struct ReplaceFlags {
     pub replace_studios: bool,
     #[arg(long)]
     pub replace_formats: bool,
+    #[arg(long)]
+    pub replace_regions: bool,
+    #[arg(long)]
+    pub replace_screen_ratios: bool,
+    #[arg(long)]
+    pub replace_subtitles: bool,
+    #[arg(long)]
+    pub replace_audio_tracks: bool,
+    #[arg(long)]
+    pub replace_hdr: bool,
+    #[arg(long)]
+    pub replace_extras: bool,
+    #[arg(long)]
+    pub replace_tags: bool,
     #[arg(long)]
     pub replace_actors: bool,
     #[arg(long)]
@@ -888,6 +1027,57 @@ pub fn build_edit_plan(conn: &Connection, id: i64, fields: &MovieFields, replace
             statements.push(format!("INSERT INTO Z_19MOVIES (Z_19FORMATS, Z_7MOVIES2) VALUES ({pk}, {id});"));
         }
     }
+    if replace.replace_regions {
+        statements.push(format!("DELETE FROM Z_7REGIONS WHERE Z_7MOVIES8 = {id};"));
+        for name in &fields.regions {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZREGION", "Region", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_7REGIONS (Z_35REGIONS, Z_7MOVIES8) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_screen_ratios {
+        statements.push(format!("DELETE FROM Z_7SCREENRATIOS WHERE Z_7MOVIES6 = {id};"));
+        for name in &fields.screen_ratios {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZSCREENRATIO", "ScreenRatio", name, &mut statements)?;
+            statements.push(format!(
+                "INSERT INTO Z_7SCREENRATIOS (Z_36SCREENRATIOS, Z_7MOVIES6) VALUES ({pk}, {id});"
+            ));
+        }
+    }
+    if replace.replace_subtitles {
+        statements.push(format!("DELETE FROM Z_7SUBTITLES WHERE Z_7MOVIES5 = {id};"));
+        for name in &fields.subtitles {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZSUBTITLE", "Subtitle", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_7SUBTITLES (Z_42SUBTITLES, Z_7MOVIES5) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_audio_tracks {
+        statements.push(format!("DELETE FROM Z_3MOVIES WHERE Z_7MOVIES = {id};"));
+        for name in &fields.audio_tracks {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZAUDIOTRACK", "AudioTrack", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_3MOVIES (Z_3AUDIOTRACKS, Z_7MOVIES) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_hdr {
+        statements.push(format!("DELETE FROM Z_21MOVIES WHERE Z_7MOVIES4 = {id};"));
+        for name in &fields.hdr {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZHDR", "HDR", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_21MOVIES (Z_21HDRS, Z_7MOVIES4) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_extras {
+        statements.push(format!("DELETE FROM Z_17MOVIES WHERE Z_7MOVIES1 = {id};"));
+        for name in &fields.extras {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZEXTRA", "Extra", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_17MOVIES (Z_17EXTRAS, Z_7MOVIES1) VALUES ({pk}, {id});"));
+        }
+    }
+    if replace.replace_tags {
+        statements.push(format!("DELETE FROM Z_6TAGS WHERE Z_6COLLECTIBLES1 = {id};"));
+        for name in &fields.tags {
+            let pk = resolve_or_create_lookup(conn, &mut alloc, "ZTAG", "Tag", name, &mut statements)?;
+            statements.push(format!("INSERT INTO Z_6TAGS (Z_43TAGS, Z_6COLLECTIBLES1) VALUES ({pk}, {id});"));
+        }
+    }
     if replace.replace_actors {
         statements.push(format!("DELETE FROM ZCAST WHERE ZMOVIE = {id};"));
         let cast_ent = entity_id(conn, "Cast")?;
@@ -923,9 +1113,9 @@ pub fn build_edit_plan(conn: &Connection, id: i64, fields: &MovieFields, replace
 
 /// Builds the SQL text to delete a movie. Removes the movie's own row
 /// plus every relation this project's own write path creates (cast,
-/// crew, genre/studio/format links) — **not yet** the relations
-/// nothing here models yet (discs, episodes, links, tags, region/
-/// screen-ratio/subtitle/HDR/extra/audio-track links), same
+/// crew, genre/studio/format/region/screen-ratio/subtitle/audio-track/
+/// HDR/extra/tag links) — **not yet** the relations nothing here
+/// models yet (discs, episodes, box sets, series, links), same
 /// deliberately-documented scope limit as Book/Music Collector's own
 /// delete left for fields they hadn't modeled either. Shared lookup/
 /// person values (a genre, a studio, an actor) are never deleted,
@@ -939,6 +1129,13 @@ pub fn build_delete_plan(id: i64) -> String {
         format!("DELETE FROM Z_20MOVIES WHERE Z_7MOVIES3 = {id};"),
         format!("DELETE FROM Z_7STUDIOS WHERE Z_7MOVIES7 = {id};"),
         format!("DELETE FROM Z_19MOVIES WHERE Z_7MOVIES2 = {id};"),
+        format!("DELETE FROM Z_7REGIONS WHERE Z_7MOVIES8 = {id};"),
+        format!("DELETE FROM Z_7SCREENRATIOS WHERE Z_7MOVIES6 = {id};"),
+        format!("DELETE FROM Z_7SUBTITLES WHERE Z_7MOVIES5 = {id};"),
+        format!("DELETE FROM Z_3MOVIES WHERE Z_7MOVIES = {id};"),
+        format!("DELETE FROM Z_21MOVIES WHERE Z_7MOVIES4 = {id};"),
+        format!("DELETE FROM Z_17MOVIES WHERE Z_7MOVIES1 = {id};"),
+        format!("DELETE FROM Z_6TAGS WHERE Z_6COLLECTIBLES1 = {id};"),
         format!("DELETE FROM ZCOLLECTIBLE WHERE Z_PK = {id};"),
         "COMMIT;".to_string(),
     ]
@@ -1051,6 +1248,13 @@ struct HtmlMovie<'a> {
     genres: &'a [String],
     studios: &'a [String],
     formats: &'a [String],
+    regions: &'a [String],
+    screen_ratios: &'a [String],
+    subtitles: &'a [String],
+    audio_tracks: &'a [String],
+    hdr: &'a [String],
+    extras: &'a [String],
+    tags: &'a [String],
     country: &'a Option<String>,
     collection: &'a Option<String>,
     date_added: &'a Option<String>,
@@ -1102,6 +1306,13 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
             genres: &m.genres,
             studios: &m.studios,
             formats: &m.formats,
+            regions: &m.regions,
+            screen_ratios: &m.screen_ratios,
+            subtitles: &m.subtitles,
+            audio_tracks: &m.audio_tracks,
+            hdr: &m.hdr,
+            extras: &m.extras,
+            tags: &m.tags,
             country: &m.country,
             collection: &m.collection,
             date_added: &m.date_added,
@@ -1537,6 +1748,13 @@ function showDetail(id) {
       ${roleList("Genre(s)", m.genres)}
       ${roleList("Studio(s)", m.studios)}
       ${roleList("Format(s)", m.formats)}
+      ${roleList("Region(s)", m.regions)}
+      ${roleList("Screen ratio(s)", m.screen_ratios)}
+      ${roleList("Subtitle(s)", m.subtitles)}
+      ${roleList("Audio track(s)", m.audio_tracks)}
+      ${roleList("HDR", m.hdr)}
+      ${roleList("Extra(s)", m.extras)}
+      ${roleList("Tag(s)", m.tags)}
       ${roleList("Cast", (m.cast || []).map((c) => c.name))}
       ${creditList("Crew", m.crew)}
       ${field("Rating", m.rating != null ? String(m.rating) : "")}
@@ -1755,6 +1973,13 @@ mod tests {
             country: Some("Round Trip Testland".to_string()),
             genres: vec!["Round Trip Genre".to_string()],
             studios: vec!["Round Trip Studio".to_string()],
+            regions: vec!["Round Trip Region".to_string()],
+            screen_ratios: vec!["Round Trip Screen Ratio".to_string()],
+            subtitles: vec!["Round Trip Subtitle".to_string()],
+            audio_tracks: vec!["Round Trip Audio Track".to_string()],
+            hdr: vec!["Round Trip HDR".to_string()],
+            extras: vec!["Round Trip Extra".to_string()],
+            tags: vec!["Round Trip Tag".to_string()],
             actors: vec!["Round Trip Actor".to_string()],
             crew: vec!["Round Trip Crew:Director".to_string()],
             ..Default::default()
@@ -1778,6 +2003,13 @@ mod tests {
         assert_eq!(added.country.as_deref(), Some("Round Trip Testland"));
         assert_eq!(added.genres, vec!["Round Trip Genre".to_string()]);
         assert_eq!(added.studios, vec!["Round Trip Studio".to_string()]);
+        assert_eq!(added.regions, vec!["Round Trip Region".to_string()]);
+        assert_eq!(added.screen_ratios, vec!["Round Trip Screen Ratio".to_string()]);
+        assert_eq!(added.subtitles, vec!["Round Trip Subtitle".to_string()]);
+        assert_eq!(added.audio_tracks, vec!["Round Trip Audio Track".to_string()]);
+        assert_eq!(added.hdr, vec!["Round Trip HDR".to_string()]);
+        assert_eq!(added.extras, vec!["Round Trip Extra".to_string()]);
+        assert_eq!(added.tags, vec!["Round Trip Tag".to_string()]);
         assert_eq!(added.cast.len(), 1);
         assert_eq!(added.cast[0].name, "Round Trip Actor");
         assert_eq!(added.crew.len(), 1);
@@ -1797,6 +2029,7 @@ mod tests {
         let add_fields = MovieFields {
             title: Some("Edit Target Movie".to_string()),
             genres: vec!["Edit Original Genre".to_string()],
+            regions: vec!["Edit Original Region".to_string()],
             ..Default::default()
         };
         let id = {
@@ -1819,10 +2052,12 @@ mod tests {
             title: Some("Edit Target Movie (renamed)".to_string()),
             rating: Some(3),
             genres: vec!["Edit Replacement Genre".to_string()],
+            regions: vec!["Edit Replacement Region".to_string()],
             ..Default::default()
         };
         let replace = ReplaceFlags {
             replace_genres: true,
+            replace_regions: true,
             ..Default::default()
         };
         {
@@ -1839,6 +2074,7 @@ mod tests {
         assert_eq!(edited.title, "Edit Target Movie (renamed)");
         assert_eq!(edited.rating, Some(3));
         assert_eq!(edited.genres, vec!["Edit Replacement Genre".to_string()]);
+        assert_eq!(edited.regions, vec!["Edit Replacement Region".to_string()]);
 
         drop(conn);
         std::fs::remove_dir_all(&scratch).ok();
@@ -1875,6 +2111,7 @@ mod tests {
                 &MovieFields {
                     title: Some("Delete Test Remove".to_string()),
                     genres: vec![shared_genre.clone()],
+                    regions: vec!["Delete Test Region".to_string()],
                     actors: vec!["Delete Test Actor".to_string()],
                     ..Default::default()
                 },
@@ -1903,6 +2140,14 @@ mod tests {
         assert!(!movies.iter().any(|m| m.id == delete_id));
         let kept = movies.iter().find(|m| m.id == keep_id).unwrap();
         assert_eq!(kept.genres, vec![shared_genre]);
+        let orphaned_region_rows: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Z_7REGIONS WHERE Z_7MOVIES8 = ?1",
+                [delete_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphaned_region_rows, 0);
 
         drop(conn);
         std::fs::remove_dir_all(&scratch).ok();
