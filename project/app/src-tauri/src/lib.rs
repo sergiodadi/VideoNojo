@@ -7,7 +7,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
     ensure_not_real_collection, load_movies, open_readonly, open_writable, preview_add_movie,
-    resolve_db_path, AddMoviePreview, Movie, MovieFields, ReplaceFlags,
+    resolve_db_path, set_cover, AddMoviePreview, Movie, MovieFields, ReplaceFlags,
 };
 
 /// The version shown to the user (header badge, both "About
@@ -233,6 +233,36 @@ fn delete_movie(path: String, id: i64) -> Result<(), String> {
     commit_plan(&conn, &plan).map_err(|e| e.to_string())
 }
 
+/// Native picker for a cover image, same async-callback shape as
+/// `pick_collection` (and for the same reason — a blocking pick from
+/// a command deadlocks). `set_cover` already does its own
+/// real-collection refusal and backup internally (see its own doc
+/// comment), so this calls it directly rather than going through a
+/// shared "open for write" helper — same pattern `vc_add set-cover`'s
+/// CLI already uses. Only the front cover is offered here: the entry
+/// point is the stats panel's "no cover" list, which only cares about
+/// the front cover movies are missing. Result goes back as an event
+/// (not the command's return value) since the picker is asynchronous.
+#[tauri::command]
+fn pick_and_set_cover(app: tauri::AppHandle, path: String, id: i64) {
+    app.dialog()
+        .file()
+        .set_title("Choose a cover image")
+        .add_filter("Image", &["jpg", "jpeg", "png", "gif", "bmp"])
+        .pick_file(move |file| {
+            let Some(file) = file else { return };
+            let Some(local_path) = file.as_path() else { return };
+            match set_cover(Path::new(&path), id, Some(local_path), None) {
+                Ok(()) => {
+                    let _ = app.emit("cover-set", id);
+                }
+                Err(e) => {
+                    let _ = app.emit("cover-set-error", e.to_string());
+                }
+            }
+        });
+}
+
 fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "VideoNojo")
@@ -308,7 +338,8 @@ pub fn run() {
             prepare_add_movie,
             add_movie,
             edit_movie,
-            delete_movie
+            delete_movie,
+            pick_and_set_cover
         ])
         .setup(|app| {
             let menu = build_menu(app.handle())?;

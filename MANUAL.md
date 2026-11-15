@@ -75,8 +75,13 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 - After any add, edit or delete, the library is automatically
   reloaded: the change appears immediately, with no manual action
   needed.
-- There is no way yet, from the application, to set a movie's cover
-  image.
+- **Setting a cover image**: from the statistics panel, expanding "N
+  with no cover" and clicking a movie in that list opens the native
+  macOS file picker to choose a front cover image — it's copied into
+  the collection's `Images/` folder. There's no way yet to set a
+  cover for a movie that already has one, or to set the back cover,
+  from the application (`vc_add set-cover` can do both; see
+  [`CLI.md`](CLI.md)).
 
 ## 4. Bilingual interface
 
@@ -99,7 +104,9 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 
 ## 6. What the application doesn't do yet
 
-- Setting or changing a movie's cover image.
+- Setting a cover for a movie that already has one, replacing an
+  existing cover, or setting a back cover — section 3 above covers
+  what *is* possible from the statistics panel.
 - Changing a movie's sub-collection from the application — only *add*
   places it in whichever tab is active. The `vc_add` CLI's
   `edit-plan --collection <name>` can move an existing movie to a

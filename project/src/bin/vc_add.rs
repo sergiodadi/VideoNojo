@@ -5,8 +5,8 @@ use clap::{Parser, Subcommand};
 use rusqlite::{Connection, OpenFlags};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
-    ensure_not_real_collection, open_readonly, open_writable, resolve_db_path, MovieFields,
-    ReplaceFlags, ENT_MOVIE,
+    ensure_not_real_collection, open_readonly, open_writable, resolve_db_path, set_cover,
+    MovieFields, ReplaceFlags, ENT_MOVIE,
 };
 
 #[derive(Parser)]
@@ -58,6 +58,20 @@ enum Command {
         db: PathBuf,
         #[arg(long)]
         plan: PathBuf,
+    },
+    /// Sets a movie's front and/or back cover image, copying the file
+    /// into the collection's Images/ folder.
+    SetCover {
+        #[arg(long)]
+        db: PathBuf,
+        #[arg(long)]
+        id: i64,
+        /// Local image file to use as the front cover
+        #[arg(long)]
+        front: Option<PathBuf>,
+        /// Local image file to use as the back cover
+        #[arg(long)]
+        back: Option<PathBuf>,
     },
     /// Bootstraps a new, independent ".vnc" database from an existing
     /// collection (package + Images/ folder) — a one-time copy, never
@@ -179,6 +193,9 @@ fn main() -> Result<()> {
             let conn = open_writable(&db)?;
             commit_plan(&conn, &sql)?;
             println!("Committed.");
+        }
+        Command::SetCover { db, id, front, back } => {
+            set_cover(&db, id, front.as_deref(), back.as_deref())?;
         }
         Command::Import { source, dest } => {
             cmd_import(source, dest)?;

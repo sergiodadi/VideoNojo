@@ -542,6 +542,68 @@ body.panel-stats #stats-pane {
   color: #1a1a1a;
 }
 
+.stat-link {
+  cursor: pointer;
+  border-bottom: 1px dashed #999;
+}
+
+.stat-link:hover {
+  color: #1a1a1a;
+  border-bottom-color: #6a7fe0;
+}
+
+.stat-link.expanded {
+  color: #6a7fe0;
+  border-bottom-color: #6a7fe0;
+}
+
+.stat-detail {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  margin: -0.4rem 0 1rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.stat-detail h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+}
+
+.stat-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.stat-detail-list li {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #f0f0f2;
+}
+
+.stat-detail-list li:last-child {
+  border-bottom: none;
+}
+
+.stat-detail-list li.clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding-left: 0.3rem;
+  margin-left: -0.3rem;
+}
+
+.stat-detail-list li.clickable:hover {
+  background: #f0f2ff;
+  color: #2e4bb0;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));

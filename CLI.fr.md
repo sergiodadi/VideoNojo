@@ -166,16 +166,32 @@ utiliser. Ne touche pas aux disques, épisodes, liens, étiquettes,
 région, format d'écran, sous-titres, HDR, bonus ou pistes audio —
 rien de tout cela n'est modélisé nulle part encore dans ce projet.
 
+### Jaquettes — `set-cover`
+
+```bash
+./vc_add set-cover --db "<chemin>" --id <id du film> --front jaquette.jpg
+./vc_add set-cover --db "<chemin>" --id <id du film> --front avant.jpg --back arriere.jpg
+```
+
+Écrit immédiatement — contrairement au couple plan/commit ci-dessus,
+une jaquette n'est qu'une copie de fichier dans le dossier `Images/`
+du paquet (nommée `"<id>_f_<slug>.<ext>"` / `"<id>_b_<slug>.<ext>"`,
+même convention que l'application elle-même) plus une colonne chacune,
+rien à relire d'abord.
+
 ### Garde-fous
 
-Avant d'écrire, `commit` vérifie, dans l'ordre :
+Avant d'écrire, `commit` et `set-cover` vérifient tous les deux, dans
+l'ordre :
 
 1. le chemin de la base **ne ressemble pas** à la vraie collection
    Movie Collector (`~/Documents/Collectorz/...`) — refus sinon, sans
    contournement possible ;
 2. une sauvegarde horodatée de `Movie_data` est créée dans
    `backups/`, à côté de la base ;
-3. le SQL du plan s'exécute en une seule transaction.
+3. le SQL du plan s'exécute en une seule transaction (`commit`) ou la
+   copie de fichier plus les mises à jour de colonnes ont lieu
+   (`set-cover`).
 
 ## 5. Pourquoi une base indépendante, séparée de Movie Collector
 

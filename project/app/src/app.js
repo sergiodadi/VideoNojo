@@ -190,6 +190,7 @@ const I18N = {
     detail_field_plot: "Plot",
     detail_field_date_added: "Date added",
     delete_confirm: 'Delete "{title}"? This cannot be undone.',
+    cover_set_failed: "Setting the cover failed: {err}",
     form_title_add: "Add Movie",
     form_title_edit: "Edit: {title}",
     form_label_title: "Title",
@@ -212,6 +213,7 @@ const I18N = {
     stats_title: "Statistics — {name}",
     stats_movies: "{n} movie(s)",
     stats_no_cover: "{n} with no cover",
+    stats_add_cover_hint: "Click to add a cover",
     stats_no_cast: "{n} with no cast",
     stats_genres: "Genres",
     stats_studios: "Studios",
@@ -265,6 +267,7 @@ const I18N = {
     detail_field_plot: "Synopsis",
     detail_field_date_added: "Date d'ajout",
     delete_confirm: 'Supprimer « {title} » ? Cette action est irréversible.',
+    cover_set_failed: "Échec de la mise à jour de la jaquette : {err}",
     form_title_add: "Ajouter un film",
     form_title_edit: "Modifier : {title}",
     form_label_title: "Titre",
@@ -287,6 +290,7 @@ const I18N = {
     stats_title: "Statistiques — {name}",
     stats_movies: "{n} film(s)",
     stats_no_cover: "{n} sans jaquette",
+    stats_add_cover_hint: "Cliquer pour ajouter une jaquette",
     stats_no_cast: "{n} sans acteur",
     stats_genres: "Genres",
     stats_studios: "Studios",
@@ -794,10 +798,16 @@ function computeStats() {
     const y = movie.date_added.slice(0, 4);
     addedYears.set(y, (addedYears.get(y) || 0) + 1);
   }
+  const noCoverMovies = scoped.filter((m) => !m.front_cover).sort((a, b) => a.title.localeCompare(b.title));
+  const noCastMovies = scoped
+    .filter((m) => !(m.cast && m.cast.length))
+    .sort((a, b) => a.title.localeCompare(b.title));
   return {
     totalMovies: scoped.length,
-    noCover: scoped.filter((m) => !m.front_cover).length,
-    noCast: scoped.filter((m) => !(m.cast && m.cast.length)).length,
+    noCover: noCoverMovies.length,
+    noCast: noCastMovies.length,
+    noCoverMovies,
+    noCastMovies,
     genres: tally((m) => m.genres || []),
     studios: tally((m) => m.studios || []),
     formats: tally((m) => m.formats || []),
@@ -823,16 +833,49 @@ function barList(title, entries, limit) {
   return `<div class="stat-block"><h3>${escapeHtml(title)}</h3>${rows || `<p class="stat-empty">${escapeHtml(t("stats_no_data"))}</p>`}</div>`;
 }
 
+// Which "N with no cover"/"N with no cast" summary items are
+// currently expanded — a plain module-level Set rather than per-call
+// state, so it survives the full-innerHTML re-render renderStats()
+// does on every toggle/language switch/tab change.
+const statsExpanded = new Set();
+
+// The "no cover" list's entries double as a shortcut into
+// pick_and_set_cover; "no cast" reuses the same renderer but stays
+// plain, since there's no equivalent one-click action for a missing
+// cast.
+function movieListHtml(list, clickableForCover) {
+  if (!list.length) return `<p class="stat-empty">${escapeHtml(t("stats_no_data"))}</p>`;
+  return `<ul class="stat-detail-list">${list
+    .map((m) => {
+      const label = escapeHtml(m.title);
+      return clickableForCover
+        ? `<li class="clickable" data-movie-id="${m.id}" title="${escapeHtml(t("stats_add_cover_hint"))}">${label}</li>`
+        : `<li>${label}</li>`;
+    })
+    .join("")}</ul>`;
+}
+
+function statLink(key, labelKey, n) {
+  const expanded = statsExpanded.has(key);
+  return `<span class="stat-link${expanded ? " expanded" : ""}" data-stat-key="${key}">${t(labelKey, { n: `<strong>${n}</strong>` })}</span>`;
+}
+
 function renderStats() {
   const s = computeStats();
+  const detailBlock = (key, labelKey, n, list, clickableForCover) => {
+    if (!statsExpanded.has(key)) return "";
+    return `<div class="stat-detail"><h4>${escapeHtml(t(labelKey, { n }))}</h4>${movieListHtml(list, clickableForCover)}</div>`;
+  };
   document.getElementById("stats-pane").innerHTML = `
     <div class="stats-wrap">
       <h2>${escapeHtml(t("stats_title", { name: collectionLabel(currentCollection) }))}</h2>
       <div class="stat-summary">
         <span>${t("stats_movies", { n: `<strong>${s.totalMovies}</strong>` })}</span>
-        <span>${t("stats_no_cover", { n: `<strong>${s.noCover}</strong>` })}</span>
-        <span>${t("stats_no_cast", { n: `<strong>${s.noCast}</strong>` })}</span>
+        ${statLink("noCover", "stats_no_cover", s.noCover)}
+        ${statLink("noCast", "stats_no_cast", s.noCast)}
       </div>
+      ${detailBlock("noCover", "stats_no_cover", s.noCover, s.noCoverMovies, true)}
+      ${detailBlock("noCast", "stats_no_cast", s.noCast, s.noCastMovies, false)}
       <div class="stat-grid">
         ${barList(t("stats_genres"), s.genres, 15)}
         ${barList(t("stats_studios"), s.studios, 10)}
@@ -842,6 +885,21 @@ function renderStats() {
         ${barList(t("stats_by_added_year"), s.addedYears)}
       </div>
     </div>`;
+  document.querySelectorAll(".stat-link").forEach((el) =>
+    el.addEventListener("click", () => {
+      const key = el.dataset.statKey;
+      if (statsExpanded.has(key)) statsExpanded.delete(key);
+      else statsExpanded.add(key);
+      renderStats();
+    })
+  );
+  document.querySelectorAll(".stat-detail-list li.clickable").forEach((el) =>
+    el.addEventListener("click", () => {
+      // Fire-and-forget: the picker is async on the Rust side, result
+      // arrives later as a "cover-set"/"cover-set-error" event.
+      invoke("pick_and_set_cover", { path: currentPath, id: Number(el.dataset.movieId) });
+    })
+  );
 }
 
 function setPanel(next) {
@@ -909,6 +967,18 @@ async function boot() {
   });
   await listen("collection-picked", (event) => {
     loadCollection(event.payload).then(saveState);
+  });
+  // Reloads the whole collection (simplest way to pick up the new
+  // front_cover everywhere it's shown — table/grid thumbnails, detail
+  // panel, the stats "no cover" list/count itself) rather than
+  // patching just the one movie in local state.
+  await listen("cover-set", () => {
+    loadCollection(currentPath).then(() => {
+      if (panel === "stats") renderStats();
+    });
+  });
+  await listen("cover-set-error", (event) => {
+    alert(t("cover_set_failed", { err: event.payload }));
   });
 
   const sortEl = document.getElementById("sort");

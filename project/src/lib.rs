@@ -961,6 +961,82 @@ pub fn ensure_not_real_collection(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// The package's `Images/` folder, given either the package directory
+/// or its `Movie_data` file directly.
+pub fn images_dir(db: &Path) -> std::path::PathBuf {
+    if db.is_dir() {
+        db.join("Images")
+    } else {
+        db.parent()
+            .map(|p| p.join("Images"))
+            .unwrap_or_else(|| std::path::PathBuf::from("Images"))
+    }
+}
+
+/// Lowercase alphanumeric words joined by underscores, truncated —
+/// same shape as the filenames already used for existing covers
+/// (observed in the package's own `Images/` folder), and the same
+/// helper BookNojo/MusicNojo already use for theirs.
+pub fn slugify(title: &str, max_len: usize) -> String {
+    let mut slug = String::new();
+    for c in title.chars() {
+        if c.is_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+        } else if !slug.ends_with('_') && !slug.is_empty() {
+            slug.push('_');
+        }
+    }
+    let slug = slug.trim_matches('_');
+    slug.chars().take(max_len).collect()
+}
+
+/// Copies `front`/`back` into the collection's `Images/` folder and
+/// points `ZCOLLECTIBLE.ZFRONTCOVER`/`ZBACKCOVER` at the new
+/// filenames — same shape as MusicNojo's own `set_cover` (the column
+/// stores a bare filename directly, no extra lookup hop, same as
+/// every other scalar field on `ZCOLLECTIBLE`). Does its own safety
+/// checks rather than relying on the caller, since this isn't a
+/// plan-then-commit write like `add`/`edit`/`delete` — there's no SQL
+/// text to preview, just a file copy plus one `UPDATE`.
+pub fn set_cover(db: &Path, movie_id: i64, front: Option<&Path>, back: Option<&Path>) -> Result<()> {
+    ensure_not_real_collection(db)?;
+    let db_path = resolve_db_path(db);
+    let images = images_dir(db);
+    std::fs::create_dir_all(&images)?;
+    backup_database(db)?;
+
+    let conn = Connection::open(&db_path)
+        .with_context(|| format!("opening {}", db_path.display()))?;
+    let title: String = conn
+        .query_row(
+            "SELECT ZTITLE FROM ZCOLLECTIBLE WHERE Z_PK = ?1 AND Z_ENT = ?2",
+            rusqlite::params![movie_id, ENT_MOVIE],
+            |row| row.get(0),
+        )
+        .with_context(|| format!("no movie with id {movie_id}"))?;
+    let slug = slugify(&title, 28);
+
+    for (source, side, column) in [(front, "f", "ZFRONTCOVER"), (back, "b", "ZBACKCOVER")] {
+        if let Some(source) = source {
+            let ext = source
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("jpg")
+                .to_lowercase();
+            let filename = format!("{movie_id}_{side}_{slug}.{ext}");
+            std::fs::copy(source, images.join(&filename)).with_context(|| {
+                format!("copying {} to Images/{filename}", source.display())
+            })?;
+            conn.execute(
+                &format!("UPDATE ZCOLLECTIBLE SET {column} = ?1 WHERE Z_PK = ?2"),
+                rusqlite::params![filename, movie_id],
+            )?;
+            println!("Images/{filename} <- {}", source.display());
+        }
+    }
+    Ok(())
+}
+
 // A JSON-serializable shape close to `Movie`, but with `front_cover`
 // resolved to an absolute `file://` URL (or omitted) instead of a bare
 // filename — the live Tauri app resolves that itself via its asset

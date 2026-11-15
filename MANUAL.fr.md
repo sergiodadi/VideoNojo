@@ -82,8 +82,14 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 - Après tout ajout, modification ou suppression, la bibliothèque se
   recharge automatiquement : le changement apparaît immédiatement,
   sans action manuelle nécessaire.
-- Il n'est pas encore possible, depuis l'application, de définir
-  l'image de jaquette d'un film.
+- **Définir une jaquette** : depuis le panneau statistiques, dérouler
+  « N sans jaquette » puis cliquer sur un film de cette liste ouvre le
+  sélecteur de fichier natif macOS pour choisir une image de jaquette
+  (avant) — elle est copiée dans le dossier `Images/` de la
+  collection. Il n'est pas encore possible de changer la jaquette d'un
+  film qui en a déjà une, ni de définir la jaquette arrière, depuis
+  l'application (`vc_add set-cover` peut faire les deux ; voir
+  [`CLI.fr.md`](CLI.fr.md)).
 
 ## 4. Interface bilingue
 
@@ -107,7 +113,9 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 
 ## 6. Ce que l'application ne fait pas encore
 
-- Définir ou changer l'image de jaquette d'un film.
+- Changer la jaquette d'un film qui en a déjà une, la remplacer, ou
+  définir la jaquette arrière — la section 3 ci-dessus couvre ce qui
+  *est* possible depuis le panneau statistiques.
 - Changer la sous-collection d'un film depuis l'application — seul
   l'ajout en place un, celui de l'onglet actif. La commande `vc_add
   edit-plan --collection <nom>` permet de déplacer un film existant

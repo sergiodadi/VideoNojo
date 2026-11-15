@@ -157,16 +157,30 @@ them. Doesn't touch discs, episodes, links, tags, region, screen
 ratio, subtitle, HDR, extra or audio track data — none of that is
 modeled anywhere in this project yet.
 
+### Covers — `set-cover`
+
+```bash
+./vc_add set-cover --db "<path>" --id <movie id> --front cover.jpg
+./vc_add set-cover --db "<path>" --id <movie id> --front front.jpg --back back.jpg
+```
+
+Writes immediately — unlike the plan/commit split above, a cover is
+just a file copy into the package's `Images/` folder (named
+`"<id>_f_<slug>.<ext>"` / `"<id>_b_<slug>.<ext>"`, matching the
+application's own naming) plus one column each, nothing to review
+first.
+
 ### Safety gates
 
-Before writing, `commit` checks, in order:
+Before writing, `commit` and `set-cover` both check, in order:
 
 1. the database path **does not look like** the real Movie Collector
    collection (`~/Documents/Collectorz/...`) — refusal otherwise, with
    no override;
 2. a timestamped backup of `Movie_data` is created in `backups/`, next
    to the database;
-3. the plan's SQL runs in a single transaction.
+3. the plan's SQL runs in a single transaction (`commit`) or the file
+   copy plus column updates happen (`set-cover`).
 
 ## 5. Why an independent database, separate from Movie Collector
 
