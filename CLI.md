@@ -54,20 +54,25 @@ including cover images, referenced as local `file://` URLs. Three
 zones, like the application:
 
 - **on the left**: grouping (Genre by default, or Studio/Format/
-  Country via the dropdown menu).
-- **top right**: the list of movies in the selected group — search.
+  Country via the dropdown menu), with an A-Z quick-jump bar above the
+  list.
+- **top right**: the list of movies in the selected group — search,
+  sort (dropdown or clickable column headers), list/grid view toggle,
+  pagination.
 - **bottom right**: the detail card (cover, title, metadata, cast and
   crew).
+- a **📊 Statistics** button, for the same per-collection bar charts
+  (genres/studios/formats/countries/decade/year added) the live
+  application has.
 
 The tabs at the top switch sub-collection without re-running the
 command.
 
 English only (no language toggle), and there is **no add/edit/delete
 form** — it's a read-only snapshot, deliberately scoped to the same
-feature set the live application has today (no A-Z bar, sort, grid
-view, pagination or statistics panel — the application doesn't have
-those yet either). `vc_add` already covers adding/editing/deleting
-directly and more safely (a reviewable plan before any real write).
+feature set the live application has today. `vc_add` already covers
+adding/editing/deleting directly and more safely (a reviewable plan
+before any real write).
 
 ## 4. `vc_add` — adding, editing, deleting
 

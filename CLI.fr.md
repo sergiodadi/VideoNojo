@@ -58,11 +58,16 @@ serveur — jaquettes comprises, référencées comme des URL `file://`
 locales. Trois zones, comme l'application :
 
 - **à gauche** : regroupement (Genre par défaut, ou Studio/Format/Pays
-  via le menu déroulant).
+  via le menu déroulant), avec une barre de raccourci A-Z au-dessus de
+  la liste.
 - **en haut à droite** : la liste des films du groupe sélectionné —
-  recherche.
+  recherche, tri (menu déroulant ou en-têtes de colonnes cliquables),
+  bascule vue liste/grille, pagination.
 - **en bas à droite** : la fiche détail (jaquette, titre, métadonnées,
   distribution et équipe technique).
+- un bouton **📊 Statistiques**, pour les mêmes graphiques en barres
+  par collection (genres/studios/formats/pays/décennie/année d'ajout)
+  que ceux de l'application.
 
 Les onglets en haut changent de sous-collection sans relancer la
 commande.
@@ -70,9 +75,7 @@ commande.
 Anglais uniquement (pas de bascule de langue), et il n'y a **pas de
 formulaire d'ajout/modification/suppression** — c'est un instantané en
 lecture seule, délibérément limité au même périmètre que
-l'application elle-même a aujourd'hui (pas de barre A-Z, de tri, de
-vue grille, de pagination ou de panneau de statistiques —
-l'application ne les a pas non plus encore). `vc_add` couvre déjà
+l'application elle-même a aujourd'hui. `vc_add` couvre déjà
 l'ajout/la modification/la suppression directement et plus sûrement
 (un plan à relire avant toute écriture réelle).
 

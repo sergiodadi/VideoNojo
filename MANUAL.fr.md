@@ -33,8 +33,16 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 - **Trois zones** : le panneau de regroupement à gauche, la liste des
   films en haut à droite, la fiche détail en bas à droite. Les
   séparateurs entre les trois zones se redimensionnent à la souris.
-- **Regroupement** par Genre (par défaut), Studio, Format ou Pays.
+- **Regroupement** par Genre (par défaut), Studio, Format ou Pays,
+  avec une barre de raccourci A-Z au-dessus de la liste qui la limite
+  aux valeurs commençant par une lettre donnée.
 - **Recherche** par titre.
+- **Tri** par titre, année, note, pays, ou date d'ajout (plus récent
+  d'abord), via le menu déroulant au-dessus de la liste ou en cliquant
+  sur un en-tête de colonne (recliquer inverse le sens).
+- **Vue liste ou grille** : la grille affiche les jaquettes (quand
+  elles existent) à la place des lignes du tableau ; les deux sont
+  paginées, 60 films par page.
 - **Plusieurs sous-collections** dans un même fichier — des onglets en
   haut permettent de basculer entre elles, en limitant la liste et les
   groupes à celle qui est active.
@@ -42,6 +50,11 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   pays, genres, studios, formats, distribution (cast), équipe
   technique (avec le rôle, quand il est connu), note, notes de
   l'utilisateur, synopsis, et date d'ajout.
+- **Panneau statistiques** (bouton «📊 Statistiques» dans l'en-tête) :
+  nombre total de films, combien n'ont pas de jaquette ou pas
+  d'acteur, et des graphiques en barres par genre, studio, format,
+  pays, décennie de sortie et année d'ajout — le tout limité à
+  l'onglet de sous-collection actif.
 - Saisir dans les champs pays/genre/studio/format/acteur/équipe
   technique du formulaire d'ajout/modification propose des
   suggestions d'autocomplétion tirées des valeurs déjà présentes dans
@@ -100,9 +113,6 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   edit-plan --collection <nom>` permet de déplacer un film existant
   vers une autre sous-collection déjà existante ; voir
   [`CLI.fr.md`](CLI.fr.md).
-- Une barre A-Z, un tri, une vue grille, une pagination, ou un panneau
-  de statistiques — rien de tout cela n'existe encore, ni dans
-  l'application ni dans son export HTML statique.
 - Les disques, épisodes, coffrets, séries, liens, étiquettes, région,
   format d'écran, sous-titres, HDR, bonus, ou pistes audio —
   la structure plus riche propre à Movie Collector, au-delà d'une

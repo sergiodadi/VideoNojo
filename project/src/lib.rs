@@ -1006,11 +1006,12 @@ fn file_url(path: &str) -> String {
 }
 
 /// Writes a standalone, read-only HTML page replicating the live
-/// app's current feature set: search, sub-collection tabs, a
-/// group-by sidebar (genre/studio/format/country), a list on top and
-/// a detail card below it. No add/edit/delete, A-Z bar, sort, grid
-/// view, pagination or stats panel — the live app doesn't have those
-/// yet either, so the export doesn't invent them.
+/// app's current feature set: search, sub-collection tabs, an A-Z
+/// bar, a group-by sidebar (genre/studio/format/country), sort
+/// presets plus clickable column headers, a list/grid toggle with
+/// pagination, a detail card, and a statistics panel. No add/edit/
+/// delete — `vc_add` already covers writing, directly and more
+/// safely (a reviewable plan before any commit).
 pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()> {
     let images_dir_abs = images_dir.canonicalize().unwrap_or_else(|_| images_dir.to_path_buf());
     let images_dir_str = images_dir_abs.to_string_lossy();
@@ -1057,8 +1058,10 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
   <h1>VideoNojo</h1>
   <input id="search" type="search" placeholder="Search by title…" autofocus>
   <span id="count"></span>
+  <button id="stats-btn">📊 Statistics</button>
 </header>
 <div id="tabs"></div>
+<div id="azbar"></div>
 <main id="main">
   <aside id="groups">
     <select id="group-field">
@@ -1071,6 +1074,19 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
   </aside>
   <div id="right-col">
     <div id="list-pane">
+      <div id="list-toolbar">
+        <select id="sort">
+          <option value="title">Title (A→Z)</option>
+          <option value="year_desc">Year (newest first)</option>
+          <option value="rating_desc">Rating (highest first)</option>
+          <option value="country">Country (A→Z)</option>
+          <option value="date_added_desc">Date added (newest first)</option>
+        </select>
+        <div id="view-toggle">
+          <button id="view-list" class="active">☰ List</button>
+          <button id="view-grid">▦ Grid</button>
+        </div>
+      </div>
       <table id="movies">
         <thead><tr>
           <th data-k="title">Title</th>
@@ -1080,6 +1096,12 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
         </tr></thead>
         <tbody></tbody>
       </table>
+      <div id="grid-view"></div>
+      <div id="pager">
+        <button id="prev-page">‹ Prev.</button>
+        <span id="page-info"></span>
+        <button id="next-page">Next ›</button>
+      </div>
     </div>
     <aside id="detail">
       <p id="detail-empty">Select a movie.</p>
@@ -1087,6 +1109,7 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
     </aside>
   </div>
 </main>
+<div id="stats-pane"></div>
 <script id="data" type="application/json">{data_json}</script>
 <script>
 {JS}
@@ -1108,12 +1131,18 @@ header { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem;
 header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 #search { flex: 1 1 12rem; min-width: 8rem; max-width: 24rem; font-size: 1rem; padding: 0.4rem 0.6rem; }
 #count { color: #666; font-size: 0.85rem; }
+#stats-btn { padding: 0.4rem 0.8rem; cursor: pointer; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+#stats-btn.active { background: #6a7fe0; color: #fff; border-color: #6a7fe0; }
 #tabs { display: flex; gap: 0.4rem; padding: 0.4rem 1rem; overflow-x: auto; background: #f0f2ff; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 #tabs .tab { flex: 0 0 auto; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; cursor: pointer; background: #e4e9ff; border: 1px solid #c3d2f7; color: #2e4bb0; }
 #tabs .tab:hover { background: #dce5fb; border-color: #6a7fe0; }
 #tabs .tab.active { background: #6a7fe0; border-color: #6a7fe0; color: #fff; }
 #tabs .tab .n { opacity: 0.75; margin-left: 0.3rem; }
 #tabs .tab.active .n { opacity: 0.9; }
+#azbar { display: flex; flex-wrap: nowrap; justify-content: space-between; overflow-x: auto; gap: 0.2rem; padding: 0.4rem 1rem; background: #fafafa; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+#azbar button { border: 1px solid transparent; background: none; font-size: 0.75rem; font-weight: 600; color: #888; padding: 0.25rem 0.55rem; border-radius: 4px; cursor: pointer; min-width: 1.6rem; flex-shrink: 0; }
+#azbar button:hover { background: #f5f7ff; color: #1a1a1a; }
+#azbar button.active { background: #6a7fe0; color: #fff; }
 #main { flex: 1; min-height: 0; display: flex; overflow: hidden; }
 #groups { flex: 0 0 220px; min-width: 140px; padding: 0.75rem; overflow-y: auto; background: #fafafa; }
 #group-field { width: 100%; margin-bottom: 0.5rem; padding: 0.3rem; }
@@ -1123,17 +1152,52 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 .group-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-count { color: #888; flex-shrink: 0; }
 #right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
-#list-pane { flex: 0 0 240px; min-height: 100px; overflow-y: auto; }
+#list-pane { flex: 0 0 240px; min-height: 100px; display: flex; flex-direction: column; overflow: auto; }
+#list-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.8rem; border-bottom: 1px solid #eee; background: #fafafa; flex-shrink: 0; }
+#sort { padding: 0.25rem 0.4rem; font-size: 0.85rem; }
+#view-toggle { display: flex; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+#view-toggle button { border: none; background: #fff; padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer; color: #666; }
+#view-toggle button:hover { background: #f5f7ff; color: #1a1a1a; }
+#view-toggle button + button { border-left: 1px solid #ddd; }
+#view-toggle button.active { background: #6a7fe0; color: #fff; }
 #movies { border-collapse: collapse; width: 100%; }
-#movies th { text-align: left; position: sticky; top: 0; background: #f5f5f5; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
+#movies th { text-align: left; position: sticky; top: 0; background: #f5f5f5; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; cursor: pointer; user-select: none; }
 #movies td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; cursor: pointer; }
 #movies tr:hover td { background: #f5f7ff; }
+#grid-view { display: none; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0.8rem; padding: 0.8rem; align-content: start; }
+#list-pane.view-grid table { display: none; }
+#list-pane.view-grid #grid-view { display: grid; }
+.grid-tile { cursor: pointer; border-radius: 6px; padding: 0.3rem; }
+.grid-tile:hover { background: #f0f2ff; }
+.grid-tile .thumb { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; background: #e4e4e8; display: block; }
+.grid-tile .t { font-size: 0.8rem; font-weight: 600; margin-top: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-tile .y { font-size: 0.72rem; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pager { display: flex; align-items: center; justify-content: center; gap: 0.8rem; padding: 0.4rem; border-top: 1px solid #eee; background: #fafafa; flex-shrink: 0; font-size: 0.8rem; }
+#pager button { padding: 0.25rem 0.6rem; cursor: pointer; }
+#pager button:disabled { cursor: default; opacity: 0.4; }
+#page-info { color: #666; }
 #detail { flex: 1 1 auto; min-height: 100px; padding: 1rem; overflow-y: auto; background: #fafafa; }
 #detail-empty { color: #888; font-style: italic; }
 #detail-content img { max-width: 160px; display: block; margin-bottom: 0.75rem; border-radius: 4px; }
 #detail-content dl { display: grid; grid-template-columns: 6rem 1fr; gap: 0.25rem 0.5rem; font-size: 0.9rem; }
 #detail-content dt { color: #666; }
 #detail-content dd { margin: 0; }
+#stats-pane { display: none; flex: 1; overflow-y: auto; background: #fbfbfc; padding: 1.5rem; min-height: 0; }
+body.panel-stats #main { display: none; }
+body.panel-stats #stats-pane { display: block; }
+.stats-wrap { max-width: 60rem; margin: 0 auto; }
+.stats-wrap h2 { font-size: 1.1rem; margin: 0 0 0.9rem; }
+.stat-summary { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem; color: #666; margin-bottom: 1.2rem; }
+.stat-summary strong { color: #1a1a1a; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1.1rem; }
+.stat-block { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 0.9rem 1rem; }
+.stat-block h3 { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 0 0 0.6rem; }
+.stat-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; }
+.stat-row .label { width: 9rem; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-row .bar-wrap { flex: 1; background: #eceef2; border-radius: 3px; height: 0.6rem; overflow: hidden; }
+.stat-row .bar { display: block; background: #6a7fe0; height: 100%; }
+.stat-row .val { width: 2.3rem; text-align: right; color: #888; font-size: 0.7rem; flex-shrink: 0; }
+.stat-empty { font-size: 0.8rem; color: #888; }
 "##;
 
 const STATIC_EXPORT_JS: &str = r##"
@@ -1141,6 +1205,10 @@ const movies = JSON.parse(document.getElementById("data").textContent);
 let currentDetailId = null;
 let groupField = "genres";
 let selectedGroup = null;
+let selectedLetter = null;
+let sortKey = "title", sortAsc = true;
+let viewMode = "list", page = 1, panel = "library";
+const PAGE_SIZE = 60;
 const DEFAULT_COLLECTION_KEY = "__default__";
 let currentCollection = null;
 
@@ -1199,9 +1267,12 @@ function renderTabs() {
     el.addEventListener("click", () => {
       currentCollection = el.dataset.key;
       selectedGroup = null;
+      selectedLetter = null;
+      page = 1;
       renderTabs();
       renderGroups();
       render(document.getElementById("search").value);
+      if (panel === "stats") renderStats();
     })
   );
 }
@@ -1210,10 +1281,43 @@ function scopedMovies() {
   return movies.filter((m) => collectionKey(m) === currentCollection);
 }
 
+// First letter used by the A-Z quick-jump bar — non-letters (numbers,
+// symbols, accented-but-not-matched edge cases) all bucket under "#".
+function letterOf(value) {
+  const ch = (value || "").trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : "#";
+}
+
+function computeAvailableLetters() {
+  const set = new Set();
+  for (const m of scopedMovies()) {
+    for (const v of groupValues(m, groupField)) if (v) set.add(letterOf(v));
+  }
+  return [...set].sort();
+}
+
+function renderAzBar() {
+  const el = document.getElementById("azbar");
+  el.innerHTML = "";
+  const all = document.createElement("button");
+  all.textContent = "All";
+  all.className = selectedLetter === null ? "active" : "";
+  all.addEventListener("click", () => { selectedLetter = null; renderGroups(); });
+  el.appendChild(all);
+  for (const letter of computeAvailableLetters()) {
+    const btn = document.createElement("button");
+    btn.textContent = letter;
+    btn.className = selectedLetter === letter ? "active" : "";
+    btn.addEventListener("click", () => { selectedLetter = letter; renderGroups(); });
+    el.appendChild(btn);
+  }
+}
+
 function computeGroups() {
   const counts = new Map();
   for (const m of scopedMovies()) {
     for (const v of groupValues(m, groupField)) {
+      if (selectedLetter && letterOf(v) !== selectedLetter) continue;
       counts.set(v, (counts.get(v) || 0) + 1);
     }
   }
@@ -1221,6 +1325,7 @@ function computeGroups() {
 }
 
 function renderGroups() {
+  renderAzBar();
   const groups = computeGroups();
   const allClass = selectedGroup === null ? "active" : "";
   const rows = groups
@@ -1240,20 +1345,66 @@ function renderGroups() {
   document.querySelectorAll("#group-list .group-row").forEach((el) =>
     el.addEventListener("click", () => {
       selectedGroup = el.dataset.value || null;
+      page = 1;
       renderGroups();
       render(document.getElementById("search").value);
     })
   );
 }
 
+const SORT_PRESETS = {
+  title: { key: "title", asc: true },
+  year_desc: { key: "release_year", asc: false },
+  rating_desc: { key: "rating", asc: false },
+  country: { key: "country", asc: true },
+  date_added_desc: { key: "date_added", asc: false },
+};
+const sortEl = document.getElementById("sort");
+function syncSortDropdown() {
+  const match = Object.entries(SORT_PRESETS).find(([, p]) => p.key === sortKey && p.asc === sortAsc);
+  if (match) sortEl.value = match[0];
+}
+sortEl.addEventListener("change", () => {
+  const preset = SORT_PRESETS[sortEl.value];
+  sortKey = preset.key; sortAsc = preset.asc; page = 1;
+  render(document.getElementById("search").value);
+});
+document.querySelectorAll("#movies th").forEach((th) => th.addEventListener("click", () => {
+  const k = th.dataset.k;
+  sortAsc = sortKey === k ? !sortAsc : true;
+  sortKey = k; page = 1;
+  syncSortDropdown();
+  render(document.getElementById("search").value);
+}));
+
+function sortRows(rows) {
+  rows.sort((a, b) => {
+    const va = Array.isArray(a[sortKey]) ? a[sortKey].join(", ") : a[sortKey];
+    const vb = Array.isArray(b[sortKey]) ? b[sortKey].join(", ") : b[sortKey];
+    const cmp = typeof va === "number" || typeof vb === "number"
+      ? (va ?? -Infinity) - (vb ?? -Infinity)
+      : String(va ?? "").localeCompare(String(vb ?? ""));
+    return sortAsc ? cmp : -cmp;
+  });
+  return rows;
+}
+
 function render(filterText) {
   const filter = (filterText || "").toLowerCase();
-  const rows = scopedMovies()
-    .filter((m) => m.title.toLowerCase().includes(filter))
-    .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup));
+  const rows = sortRows(
+    scopedMovies()
+      .filter((m) => m.title.toLowerCase().includes(filter))
+      .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup))
+  );
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  page = Math.min(Math.max(1, page), totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
+
   document.getElementById("count").textContent = `${rows.length} movie(s)`;
   const tbody = document.querySelector("#movies tbody");
-  tbody.innerHTML = rows
+  tbody.innerHTML = pageRows
     .map((m) => `
       <tr data-id="${m.id}">
         <td>${escapeHtml(m.title)}</td>
@@ -1265,7 +1416,35 @@ function render(filterText) {
   tbody.querySelectorAll("tr").forEach((tr) =>
     tr.addEventListener("click", () => showDetail(Number(tr.dataset.id)))
   );
+
+  const grid = document.getElementById("grid-view");
+  grid.innerHTML = pageRows.map((m) => {
+    const thumb = m.front_cover_url ? `<img class="thumb" loading="lazy" src="${m.front_cover_url}" alt="">` : `<div class="thumb"></div>`;
+    return `<div class="grid-tile" data-id="${m.id}">${thumb}<div class="t">${escapeHtml(m.title)}</div><div class="y">${escapeHtml(m.release_year)}</div></div>`;
+  }).join("");
+  grid.querySelectorAll(".grid-tile").forEach((tile) =>
+    tile.addEventListener("click", () => showDetail(Number(tile.dataset.id)))
+  );
+
+  document.getElementById("page-info").textContent = `Page ${page} of ${totalPages}`;
+  document.getElementById("prev-page").disabled = page <= 1;
+  document.getElementById("next-page").disabled = page >= totalPages;
 }
+
+document.getElementById("prev-page").addEventListener("click", () => { page--; render(document.getElementById("search").value); });
+document.getElementById("next-page").addEventListener("click", () => { page++; render(document.getElementById("search").value); });
+
+const viewListBtn = document.getElementById("view-list");
+const viewGridBtn = document.getElementById("view-grid");
+const listPaneEl = document.getElementById("list-pane");
+function setViewMode(mode) {
+  viewMode = mode;
+  listPaneEl.classList.toggle("view-grid", mode === "grid");
+  viewListBtn.classList.toggle("active", mode === "list");
+  viewGridBtn.classList.toggle("active", mode === "grid");
+}
+viewListBtn.addEventListener("click", () => setViewMode("list"));
+viewGridBtn.addEventListener("click", () => setViewMode("grid"));
 
 function showDetail(id) {
   currentDetailId = id;
@@ -1292,7 +1471,89 @@ function showDetail(id) {
   `;
 }
 
-document.getElementById("search").addEventListener("input", (e) => render(e.target.value));
+document.getElementById("search").addEventListener("input", (e) => { page = 1; render(e.target.value); });
+document.getElementById("group-field").addEventListener("change", (e) => {
+  groupField = e.target.value; selectedGroup = null; selectedLetter = null; page = 1;
+  renderGroups(); render(document.getElementById("search").value);
+});
+
+// --- Statistics ---------------------------------------------------------
+function computeStats() {
+  const scoped = scopedMovies();
+  const tally = (getter) => {
+    const m = new Map();
+    for (const movie of scoped) for (const v of getter(movie)) if (v) m.set(v, (m.get(v) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const decades = new Map();
+  for (const movie of scoped) {
+    const y = parseInt(movie.release_year, 10);
+    if (!y) continue;
+    const d = Math.floor(y / 10) * 10;
+    decades.set(d, (decades.get(d) || 0) + 1);
+  }
+  const addedYears = new Map();
+  for (const movie of scoped) {
+    if (!movie.date_added) continue;
+    const y = movie.date_added.slice(0, 4);
+    addedYears.set(y, (addedYears.get(y) || 0) + 1);
+  }
+  return {
+    totalMovies: scoped.length,
+    noCover: scoped.filter((m) => !m.front_cover_url).length,
+    noCast: scoped.filter((m) => !(m.cast && m.cast.length)).length,
+    genres: tally((m) => m.genres || []),
+    studios: tally((m) => m.studios || []),
+    formats: tally((m) => m.formats || []),
+    countries: tally((m) => (m.country ? [m.country] : [])),
+    decades: [...decades.entries()].sort((a, b) => a[0] - b[0]).map(([d, c]) => [`${d}s`, c]),
+    addedYears: [...addedYears.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+  };
+}
+
+function barList(title, entries, limit) {
+  const top = limit ? entries.slice(0, limit) : entries;
+  const max = top.reduce((m, [, c]) => Math.max(m, c), 1);
+  const rows = top.map(([label, count]) => `
+    <div class="stat-row">
+      <span class="label">${escapeHtml(label)}</span>
+      <span class="bar-wrap"><span class="bar" style="width:${((count / max) * 100).toFixed(1)}%"></span></span>
+      <span class="val">${count}</span>
+    </div>`).join("");
+  return `<div class="stat-block"><h3>${escapeHtml(title)}</h3>${rows || `<p class="stat-empty">No data.</p>`}</div>`;
+}
+
+function renderStats() {
+  const s = computeStats();
+  document.getElementById("stats-pane").innerHTML = `
+    <div class="stats-wrap">
+      <h2>Statistics — ${escapeHtml(collectionLabel(currentCollection))}</h2>
+      <div class="stat-summary">
+        <span><strong>${s.totalMovies}</strong> movie(s)</span>
+        <span><strong>${s.noCover}</strong> with no cover</span>
+        <span><strong>${s.noCast}</strong> with no cast</span>
+      </div>
+      <div class="stat-grid">
+        ${barList("Genres", s.genres, 15)}
+        ${barList("Studios", s.studios, 10)}
+        ${barList("Formats", s.formats)}
+        ${barList("Countries", s.countries)}
+        ${barList("By release decade", s.decades)}
+        ${barList("By year added", s.addedYears)}
+      </div>
+    </div>`;
+}
+
+const statsBtn = document.getElementById("stats-btn");
+function setPanel(next) {
+  panel = next;
+  document.body.classList.toggle("panel-stats", panel === "stats");
+  statsBtn.classList.toggle("active", panel === "stats");
+  statsBtn.textContent = panel === "stats" ? "← Back to collection" : "📊 Statistics";
+  if (panel === "stats") renderStats();
+}
+statsBtn.addEventListener("click", () => setPanel(panel === "stats" ? "library" : "stats"));
+
 renderTabs();
 renderGroups();
 render("");

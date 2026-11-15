@@ -30,14 +30,26 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 - **Three zones**: the grouping panel on the left, the movie list at
   top right, the detail card at bottom right. The dividers between the
   three zones can be resized with the mouse.
-- **Grouping** by Genre (default), Studio, Format or Country.
+- **Grouping** by Genre (default), Studio, Format or Country, with an
+  A-Z quick-jump bar above the list that narrows it to values starting
+  with a given letter.
 - **Search** by title.
+- **Sort** by title, year, rating, country, or date added (newest
+  first), via the dropdown above the list or by clicking a column
+  header (clicking it again reverses the direction).
+- **List or grid view**: the grid shows cover thumbnails (when
+  present) instead of table rows; both are paginated, 60 movies per
+  page.
 - **Multiple sub-collections** in a single file — tabs at the top
   switch between them, scoping the list and groups to whichever is
   active.
 - **Movie detail card**: title, original title, release year, country,
   genres, studios, formats, cast, crew (with role, when known), rating,
   notes, plot, and date added.
+- **Statistics panel** (the "📊 Statistics" button in the header):
+  total movie count, how many have no cover or no cast, and bar charts
+  of genres, studios, formats, countries, release decade, and year
+  added — all scoped to the active sub-collection tab.
 - Typing in the add/edit form's country/genre/studio/format/actor/crew
   fields offers autocomplete suggestions drawn from the collection's
   own existing values.
@@ -92,9 +104,6 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   places it in whichever tab is active. The `vc_add` CLI's
   `edit-plan --collection <name>` can move an existing movie to a
   different already-existing sub-collection; see [`CLI.md`](CLI.md).
-- An A-Z bar, sort, grid view, pagination, or a statistics panel —
-  none of this exists yet, in the application or in its static HTML
-  export.
 - Discs, episodes, box sets, series, links, tags, region, screen
   ratio, subtitle, HDR, extra, or audio track data — Movie Collector's
   own richer structure beyond a flat movie record — isn't modeled
