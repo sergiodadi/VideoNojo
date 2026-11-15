@@ -60,6 +60,41 @@ pub struct CastMember {
     pub character: Option<String>,
 }
 
+/// A TV episode, one row of `ZEPISODE` — always a child of a `Disc`
+/// (`ZEPISODE.ZDISC`), never directly of a `Movie`. Only the
+/// columns with real data in the test collection are modeled; a
+/// handful of sparser ones (IMDB number, movie URL, viewing
+/// date/location) are left out, same "deliberately a subset" scope
+/// already noted for `MovieFields`.
+#[derive(Serialize, Clone)]
+pub struct Episode {
+    pub id: i64,
+    pub rank: Option<i64>,
+    pub sequence_number: Option<String>,
+    pub title: Option<String>,
+    pub plot: Option<String>,
+    pub running_time: Option<i64>,
+    pub seen_it: bool,
+    pub first_air_year: Option<String>,
+    pub first_air_month: Option<String>,
+    pub first_air_day: Option<String>,
+}
+
+/// A physical disc, one row of `ZDISC` — its own top-level entity
+/// (`ZDISC.ZMOVIE`), not part of the `Collectible` hierarchy. Holds
+/// zero or more `Episode`s for a TV-series movie.
+#[derive(Serialize, Clone)]
+pub struct Disc {
+    pub id: i64,
+    pub rank: Option<i64>,
+    pub title: Option<String>,
+    pub format: Option<String>,
+    pub storage_device: Option<String>,
+    pub extra_features: Option<String>,
+    pub storage_slot: Option<String>,
+    pub episodes: Vec<Episode>,
+}
+
 #[derive(Serialize)]
 pub struct Movie {
     pub id: i64,
@@ -67,6 +102,7 @@ pub struct Movie {
     pub title_original: Option<String>,
     pub cast: Vec<CastMember>,
     pub crew: Vec<Credit>,
+    pub discs: Vec<Disc>,
     pub genres: Vec<String>,
     pub studios: Vec<String>,
     pub formats: Vec<String>,
@@ -87,6 +123,10 @@ pub struct Movie {
     pub audience_rating: Option<String>,
     pub language: Option<String>,
     pub collection: Option<String>,
+    pub series: Option<String>,
+    pub box_set: Option<String>,
+    pub box_set_rank: Option<i64>,
+    pub is_tv_series: bool,
     /// "YYYY-MM-DD HH:MM:SS", UTC (ZDATEADDED is a Core Data
     /// reference-date timestamp: seconds since 2001-01-01, converted
     /// in SQL).
@@ -189,6 +229,14 @@ struct Lookups {
     audience_ratings: HashMap<i64, String>,
     languages: HashMap<i64, String>,
     collections: HashMap<i64, String>,
+    series: HashMap<i64, String>,
+    box_sets: HashMap<i64, String>,
+    // Disc-level lookups, keyed by the lookup's own Z_PK (not by
+    // movie id like `formats` above, which is a movie→format
+    // many-to-many map) — `ZDISC.ZFORMAT`/`ZSTORAGEDEVICE` are
+    // single-valued FKs straight off the disc row.
+    disc_formats: HashMap<i64, String>,
+    storage_devices: HashMap<i64, String>,
     actors: HashMap<i64, String>,
     credit_people: HashMap<i64, String>,
     genres: HashMap<i64, Vec<String>>,
@@ -225,6 +273,10 @@ fn load_lookups(conn: &Connection) -> Result<Lookups> {
         owners: load_lookup_map(conn, "ZOWNER")?,
         audience_ratings: load_lookup_map(conn, "ZAUDIENCERATING")?,
         languages: load_lookup_map(conn, "ZLANGUAGE")?,
+        series: load_lookup_map(conn, "ZSERIES")?,
+        box_sets: load_lookup_map(conn, "ZBOXSET")?,
+        disc_formats: load_lookup_map(conn, "ZFORMAT")?,
+        storage_devices: load_lookup_map(conn, "ZSTORAGEDEVICE")?,
         collections: load_collections_map(conn)?,
         actors: load_person_map(conn, "ZACTOR")?,
         credit_people: load_person_map(conn, "ZCREDITPERSON")?,
@@ -297,17 +349,88 @@ fn load_crew(conn: &Connection, lookups: &Lookups) -> Result<HashMap<i64, Vec<Cr
     Ok(map)
 }
 
+/// `ZEPISODE` rows, grouped by their owning disc's `Z_PK`
+/// (`ZEPISODE.ZDISC`) — an episode never links to a movie directly.
+fn load_episodes(conn: &Connection) -> Result<HashMap<i64, Vec<Episode>>> {
+    let mut stmt = conn.prepare(
+        "SELECT Z_PK, ZDISC, ZRANK, ZSEQUENCENUMBER, ZTITLE, ZPLOT, ZRUNNINGTIME, \
+                ZSEENIT, ZFIRSTAIRYEAR, ZFIRSTAIRMONTH, ZFIRSTAIRDAY \
+         FROM ZEPISODE ORDER BY ZDISC, ZRANK",
+    )?;
+    let mut map: HashMap<i64, Vec<Episode>> = HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let disc_pk: Option<i64> = row.get(1)?;
+        Ok((
+            disc_pk,
+            Episode {
+                id: row.get(0)?,
+                rank: row.get(2)?,
+                sequence_number: row.get(3)?,
+                title: row.get(4)?,
+                plot: row.get(5)?,
+                running_time: row.get(6)?,
+                seen_it: row.get::<_, Option<i64>>(7)?.unwrap_or(0) != 0,
+                first_air_year: row.get(8)?,
+                first_air_month: row.get(9)?,
+                first_air_day: row.get(10)?,
+            },
+        ))
+    })?;
+    for (disc_pk, episode) in rows.filter_map(|r| r.ok()) {
+        let Some(disc_pk) = disc_pk else { continue };
+        map.entry(disc_pk).or_default().push(episode);
+    }
+    Ok(map)
+}
+
+/// `ZDISC` rows, grouped by their owning movie's `Z_PK`
+/// (`ZDISC.ZMOVIE`), each with its own `Episode`s already attached.
+fn load_discs(conn: &Connection, lookups: &Lookups) -> Result<HashMap<i64, Vec<Disc>>> {
+    let episodes_by_disc = load_episodes(conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT Z_PK, ZMOVIE, ZRANK, ZTITLE, ZFORMAT, ZSTORAGEDEVICE, ZEXTRAFEATURES, ZSTORAGESLOT \
+         FROM ZDISC ORDER BY ZMOVIE, ZRANK",
+    )?;
+    let mut map: HashMap<i64, Vec<Disc>> = HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let movie_pk: Option<i64> = row.get(1)?;
+        let id: i64 = row.get(0)?;
+        let format_pk: Option<i64> = row.get(4)?;
+        let storage_device_pk: Option<i64> = row.get(5)?;
+        Ok((
+            movie_pk,
+            Disc {
+                id,
+                rank: row.get(2)?,
+                title: row.get(3)?,
+                format: format_pk.and_then(|pk| lookups.disc_formats.get(&pk).cloned()),
+                storage_device: storage_device_pk.and_then(|pk| lookups.storage_devices.get(&pk).cloned()),
+                extra_features: row.get(6)?,
+                storage_slot: row.get(7)?,
+                episodes: episodes_by_disc.get(&id).cloned().unwrap_or_default(),
+            },
+        ))
+    })?;
+    for (movie_pk, disc) in rows.filter_map(|r| r.ok()) {
+        let Some(movie_pk) = movie_pk else { continue };
+        map.entry(movie_pk).or_default().push(disc);
+    }
+    Ok(map)
+}
+
 pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
     let lookups = load_lookups(conn)?;
     let cast_by_movie = load_cast(conn, &lookups)?;
     let crew_by_movie = load_crew(conn, &lookups)?;
+    let discs_by_movie = load_discs(conn, &lookups)?;
 
     let mut stmt = conn.prepare(
         "SELECT Z_PK, ZTITLE, ZTITLEORIGINAL, ZCOUNTRY, ZCONDITION, ZPACKAGING, \
                 ZDISTRIBUTOR, ZEDITION, ZLOCATION, ZOWNER, ZAUDIENCERATING, \
                 ZLANGUAGE, ZCOLLECTION, ZMYRATING, ZNOTES, ZPLOT, ZUPC, \
                 ZFRONTCOVER, ZBACKCOVER, ZRELEASEYEAR, \
-                datetime(ZDATEADDED + 978307200, 'unixepoch') \
+                datetime(ZDATEADDED + 978307200, 'unixepoch'), \
+                ZSERIES, ZBOXSET, ZBOXSETRANK, ZISTVSERIES \
          FROM ZCOLLECTIBLE WHERE Z_ENT = ?1 ORDER BY Z_PK",
     )?;
 
@@ -324,6 +447,8 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
             let audience_rating_pk: Option<i64> = row.get(10)?;
             let language_pk: Option<i64> = row.get(11)?;
             let collection_pk: Option<i64> = row.get(12)?;
+            let series_pk: Option<i64> = row.get(21)?;
+            let box_set_pk: Option<i64> = row.get(22)?;
 
             Ok(Movie {
                 id,
@@ -331,6 +456,7 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
                 title_original: row.get(2)?,
                 cast: cast_by_movie.get(&id).cloned().unwrap_or_default(),
                 crew: crew_by_movie.get(&id).cloned().unwrap_or_default(),
+                discs: discs_by_movie.get(&id).cloned().unwrap_or_default(),
                 genres: lookups.genres.get(&id).cloned().unwrap_or_default(),
                 studios: lookups.studios.get(&id).cloned().unwrap_or_default(),
                 formats: lookups.formats.get(&id).cloned().unwrap_or_default(),
@@ -352,6 +478,10 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
                     .and_then(|pk| lookups.audience_ratings.get(&pk).cloned()),
                 language: language_pk.and_then(|pk| lookups.languages.get(&pk).cloned()),
                 collection: collection_pk.and_then(|pk| lookups.collections.get(&pk).cloned()),
+                series: series_pk.and_then(|pk| lookups.series.get(&pk).cloned()),
+                box_set: box_set_pk.and_then(|pk| lookups.box_sets.get(&pk).cloned()),
+                box_set_rank: row.get(23)?,
+                is_tv_series: row.get::<_, Option<i64>>(24)?.unwrap_or(0) != 0,
                 rating: row.get(13)?,
                 notes: row.get(14)?,
                 plot: row.get(15)?,
@@ -419,6 +549,10 @@ pub struct MovieFields {
     pub collection: Option<String>,
     #[arg(long)]
     pub country: Option<String>,
+    #[arg(long)]
+    pub series: Option<String>,
+    #[arg(long)]
+    pub box_set: Option<String>,
     #[arg(long = "genre")]
     pub genres: Vec<String>,
     #[arg(long = "studio")]
@@ -679,6 +813,20 @@ pub fn preview_add_movie(conn: &Connection, fields: &MovieFields) -> Result<AddM
             is_new: !lookup_exists(conn, "ZCOUNTRY", name)?,
         });
     }
+    if let Some(name) = &fields.series {
+        resolved.push(ResolvedField {
+            label: "Series".to_string(),
+            value: name.clone(),
+            is_new: !lookup_exists(conn, "ZSERIES", name)?,
+        });
+    }
+    if let Some(name) = &fields.box_set {
+        resolved.push(ResolvedField {
+            label: "Box set".to_string(),
+            value: name.clone(),
+            is_new: !lookup_exists(conn, "ZBOXSET", name)?,
+        });
+    }
     for (label, table, names) in [
         ("Genre", "ZGENRE", &fields.genres),
         ("Studio", "ZSTUDIO", &fields.studios),
@@ -741,6 +889,16 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
         .collection
         .as_deref()
         .map(|name| resolve_collection_pk(conn, name))
+        .transpose()?;
+    let series_pk = fields
+        .series
+        .as_deref()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZSERIES", "Series", name, &mut create_sql))
+        .transpose()?;
+    let box_set_pk = fields
+        .box_set
+        .as_deref()
+        .map(|name| resolve_or_create_lookup(conn, &mut alloc, "ZBOXSET", "Boxset", name, &mut create_sql))
         .transpose()?;
 
     let genre_pks = fields
@@ -821,14 +979,16 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
     statements.extend(create_sql);
     statements.push(format!(
         "INSERT INTO ZCOLLECTIBLE (Z_PK, Z_ENT, Z_OPT, ZTITLE, ZTITLEORIGINAL, ZCOUNTRY, \
-         ZCOLLECTION, ZRELEASEYEAR, ZMYRATING, ZNOTES, ZPLOT, ZUPC, ZDATEADDED) \
+         ZCOLLECTION, ZSERIES, ZBOXSET, ZRELEASEYEAR, ZMYRATING, ZNOTES, ZPLOT, ZUPC, ZDATEADDED) \
          VALUES ({movie_pk}, {ent_movie}, 1, '{title}', {title_original}, {country}, \
-         {collection}, {release_year}, {rating}, {notes}, {plot}, {upc}, {date_added});",
+         {collection}, {series}, {box_set}, {release_year}, {rating}, {notes}, {plot}, {upc}, {date_added});",
         ent_movie = ENT_MOVIE,
         title = sql_escape(&title),
         title_original = sql_literal(&fields.title_original),
         country = country_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
         collection = collection_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
+        series = series_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
+        box_set = box_set_pk.map(|p| p.to_string()).unwrap_or_else(|| "NULL".to_string()),
         release_year = sql_literal(&fields.release_year),
         rating = fields.rating.map(|r| r.to_string()).unwrap_or_else(|| "NULL".to_string()),
         notes = sql_literal(&fields.notes),
@@ -994,6 +1154,14 @@ pub fn build_edit_plan(conn: &Connection, id: i64, fields: &MovieFields, replace
     if let Some(name) = &fields.country {
         let pk = resolve_or_create_lookup(conn, &mut alloc, "ZCOUNTRY", "Country", name, &mut statements)?;
         set_clauses.push(format!("ZCOUNTRY = {pk}"));
+    }
+    if let Some(name) = &fields.series {
+        let pk = resolve_or_create_lookup(conn, &mut alloc, "ZSERIES", "Series", name, &mut statements)?;
+        set_clauses.push(format!("ZSERIES = {pk}"));
+    }
+    if let Some(name) = &fields.box_set {
+        let pk = resolve_or_create_lookup(conn, &mut alloc, "ZBOXSET", "Boxset", name, &mut statements)?;
+        set_clauses.push(format!("ZBOXSET = {pk}"));
     }
     if let Some(name) = &fields.collection {
         let pk = resolve_collection_pk(conn, name)?;
@@ -1245,6 +1413,7 @@ struct HtmlMovie<'a> {
     title_original: &'a Option<String>,
     cast: &'a [CastMember],
     crew: &'a [Credit],
+    discs: &'a [Disc],
     genres: &'a [String],
     studios: &'a [String],
     formats: &'a [String],
@@ -1257,6 +1426,9 @@ struct HtmlMovie<'a> {
     tags: &'a [String],
     country: &'a Option<String>,
     collection: &'a Option<String>,
+    series: &'a Option<String>,
+    box_set: &'a Option<String>,
+    is_tv_series: bool,
     date_added: &'a Option<String>,
     release_year: &'a Option<String>,
     rating: Option<i64>,
@@ -1303,6 +1475,7 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
             title_original: &m.title_original,
             cast: &m.cast,
             crew: &m.crew,
+            discs: &m.discs,
             genres: &m.genres,
             studios: &m.studios,
             formats: &m.formats,
@@ -1315,6 +1488,9 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
             tags: &m.tags,
             country: &m.country,
             collection: &m.collection,
+            series: &m.series,
+            box_set: &m.box_set,
+            is_tv_series: m.is_tv_series,
             date_added: &m.date_added,
             release_year: &m.release_year,
             rating: m.rating,
@@ -1469,6 +1645,8 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 #detail-content dl { display: grid; grid-template-columns: 6rem 1fr; gap: 0.25rem 0.5rem; font-size: 0.9rem; }
 #detail-content dt { color: #666; }
 #detail-content dd { margin: 0; }
+#detail-content .disc-heading { font-weight: 600; margin-top: 0.75rem; font-size: 0.85rem; color: #444; }
+#detail-content ol { padding-left: 1.2rem; font-size: 0.9rem; margin: 0.25rem 0 0; }
 #stats-pane { display: none; flex: 1; overflow-y: auto; background: #fbfbfc; padding: 1.5rem; min-height: 0; }
 body.panel-stats #main { display: none; }
 body.panel-stats #stats-pane { display: block; }
@@ -1517,6 +1695,21 @@ function creditList(label, credits) {
   if (!credits || !credits.length) return "";
   const text = credits.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)).join(", ");
   return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
+}
+
+function discsBlock(discs) {
+  const interesting = (discs || []).filter(
+    (d) => (d.episodes && d.episodes.length) || d.format || d.storage_device || d.extra_features || d.storage_slot
+  );
+  if (!interesting.length) return "";
+  return interesting.map((d) => {
+    const meta = [d.format, d.storage_device, d.extra_features, d.storage_slot].filter(Boolean).map(escapeHtml).join(" — ");
+    const episodes = (d.episodes || []).map((e) => {
+      const airDate = [e.first_air_year, e.first_air_month, e.first_air_day].filter(Boolean).join("-");
+      return `<li>${escapeHtml(e.title || "")}${airDate ? ` — ${escapeHtml(airDate)}` : ""}</li>`;
+    }).join("");
+    return `<div class="disc-heading">${escapeHtml(d.title || "")}${meta ? ` (${meta})` : ""}</div>${episodes ? `<ol>${episodes}</ol>` : ""}`;
+  }).join("");
 }
 
 function collectionKey(m) {
@@ -1745,6 +1938,9 @@ function showDetail(id) {
       ${field("Original title", m.title_original)}
       ${field("Year", m.release_year)}
       ${field("Country", m.country)}
+      ${field("Series", m.series)}
+      ${field("Box set", m.box_set)}
+      ${field("TV series", m.is_tv_series ? "Yes" : "")}
       ${roleList("Genre(s)", m.genres)}
       ${roleList("Studio(s)", m.studios)}
       ${roleList("Format(s)", m.formats)}
@@ -1762,6 +1958,7 @@ function showDetail(id) {
       ${field("Plot", m.plot)}
       ${field("Date added", m.date_added)}
     </dl>
+    ${discsBlock(m.discs)}
   `;
 }
 
@@ -1867,6 +2064,10 @@ mod tests {
         let conn = open_readonly(&path).unwrap();
         let movies = load_movies(&conn).unwrap();
         assert!(!movies.is_empty());
+        assert!(movies.iter().any(|m| !m.discs.is_empty()));
+        assert!(movies
+            .iter()
+            .any(|m| m.discs.iter().any(|d| !d.episodes.is_empty())));
     }
 
     /// A fresh, disposable, writable copy of `testdata/` in a new temp
@@ -1971,6 +2172,8 @@ mod tests {
             release_year: Some("1999".to_string()),
             rating: Some(5),
             country: Some("Round Trip Testland".to_string()),
+            series: Some("Round Trip Series".to_string()),
+            box_set: Some("Round Trip Box Set".to_string()),
             genres: vec!["Round Trip Genre".to_string()],
             studios: vec!["Round Trip Studio".to_string()],
             regions: vec!["Round Trip Region".to_string()],
@@ -2001,6 +2204,8 @@ mod tests {
             .find(|m| m.title == "Round Trip Test Movie")
             .expect("newly added movie not found");
         assert_eq!(added.country.as_deref(), Some("Round Trip Testland"));
+        assert_eq!(added.series.as_deref(), Some("Round Trip Series"));
+        assert_eq!(added.box_set.as_deref(), Some("Round Trip Box Set"));
         assert_eq!(added.genres, vec!["Round Trip Genre".to_string()]);
         assert_eq!(added.studios, vec!["Round Trip Studio".to_string()]);
         assert_eq!(added.regions, vec!["Round Trip Region".to_string()]);
@@ -2051,6 +2256,8 @@ mod tests {
         let edit_fields = MovieFields {
             title: Some("Edit Target Movie (renamed)".to_string()),
             rating: Some(3),
+            series: Some("Edit Series".to_string()),
+            box_set: Some("Edit Box Set".to_string()),
             genres: vec!["Edit Replacement Genre".to_string()],
             regions: vec!["Edit Replacement Region".to_string()],
             ..Default::default()
@@ -2075,6 +2282,8 @@ mod tests {
         assert_eq!(edited.rating, Some(3));
         assert_eq!(edited.genres, vec!["Edit Replacement Genre".to_string()]);
         assert_eq!(edited.regions, vec!["Edit Replacement Region".to_string()]);
+        assert_eq!(edited.series.as_deref(), Some("Edit Series"));
+        assert_eq!(edited.box_set.as_deref(), Some("Edit Box Set"));
 
         drop(conn);
         std::fs::remove_dir_all(&scratch).ok();

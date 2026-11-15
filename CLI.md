@@ -60,7 +60,7 @@ zones, like the application:
   sort (dropdown or clickable column headers), list/grid view toggle,
   pagination.
 - **bottom right**: the detail card (cover, title, metadata, cast and
-  crew).
+  crew, plus discs/episodes for a TV series).
 - a **📊 Statistics** button, for the same per-collection bar charts
   (genres/studios/formats/countries/decade/year added) the live
   application has.
@@ -112,7 +112,7 @@ is the point — nothing is written until you do.
 
 `add-plan` accepts every scalar field (`--title`, `--title-original`,
 `--release-year`, `--rating`, `--notes`, `--plot`, `--upc`,
-`--country`, `--collection`), and every repeatable field (`--genre`,
+`--country`, `--collection`, `--series`, `--box-set`), and every repeatable field (`--genre`,
 `--studio`, `--format`, `--region`, `--screen-ratio`, `--subtitle`,
 `--audio-track`, `--hdr`, `--extra`, `--tag`, `--actor`, `--crew`, one
 occurrence per value). `--collection` must name an already-existing sub-collection —

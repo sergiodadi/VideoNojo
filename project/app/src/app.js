@@ -180,6 +180,10 @@ const I18N = {
     detail_field_original_title: "Original title",
     detail_field_year: "Year",
     detail_field_country: "Country",
+    detail_field_series: "Series",
+    detail_field_box_set: "Box set",
+    detail_field_tv_series: "TV series",
+    yes: "Yes",
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
     detail_field_formats: "Format(s)",
@@ -204,6 +208,8 @@ const I18N = {
     form_label_year: "Release year",
     form_label_rating: "Rating (0–5)",
     form_label_country: "Country",
+    form_label_series: "Series",
+    form_label_box_set: "Box set",
     form_label_genres: "Genre(s), comma-separated",
     form_label_studios: "Studio(s), comma-separated",
     form_label_formats: "Format(s), comma-separated",
@@ -271,6 +277,10 @@ const I18N = {
     detail_field_original_title: "Titre original",
     detail_field_year: "Année",
     detail_field_country: "Pays",
+    detail_field_series: "Série",
+    detail_field_box_set: "Coffret",
+    detail_field_tv_series: "Série TV",
+    yes: "Oui",
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
     detail_field_formats: "Format(s)",
@@ -295,6 +305,8 @@ const I18N = {
     form_label_year: "Année de sortie",
     form_label_rating: "Note (0–5)",
     form_label_country: "Pays",
+    form_label_series: "Série",
+    form_label_box_set: "Coffret",
     form_label_genres: "Genre(s), séparés par des virgules",
     form_label_studios: "Studio(s), séparés par des virgules",
     form_label_formats: "Format(s), séparés par des virgules",
@@ -386,6 +398,33 @@ function creditList(label, credits) {
   if (!credits || !credits.length) return "";
   const text = credits.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)).join(", ");
   return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
+}
+
+// Read-only for now — most movies have exactly one bare "Disc 1" with
+// no episodes, which isn't worth showing; a disc only renders when it
+// actually carries something (episodes, or one of its own fields).
+function discsBlock(discs) {
+  const interesting = (discs || []).filter(
+    (d) => (d.episodes && d.episodes.length) || d.format || d.storage_device || d.extra_features || d.storage_slot
+  );
+  if (!interesting.length) return "";
+  return interesting
+    .map((d) => {
+      const meta = [d.format, d.storage_device, d.extra_features, d.storage_slot]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join(" — ");
+      const episodes = (d.episodes || [])
+        .map((e) => {
+          const airDate = [e.first_air_year, e.first_air_month, e.first_air_day].filter(Boolean).join("-");
+          return `<li>${escapeHtml(e.title || "")}${airDate ? ` — ${escapeHtml(airDate)}` : ""}</li>`;
+        })
+        .join("");
+      return `<div class="disc-heading">${escapeHtml(d.title || "")}${meta ? ` (${meta})` : ""}</div>${
+        episodes ? `<ol>${episodes}</ol>` : ""
+      }`;
+    })
+    .join("");
 }
 
 // The inverse of fieldsFromAddForm's "Name" / "Name:Role" crew entry
@@ -645,6 +684,9 @@ function showDetail(id) {
       ${field(t("detail_field_original_title"), m.title_original)}
       ${field(t("detail_field_year"), m.release_year)}
       ${field(t("detail_field_country"), m.country)}
+      ${field(t("detail_field_series"), m.series)}
+      ${field(t("detail_field_box_set"), m.box_set)}
+      ${field(t("detail_field_tv_series"), m.is_tv_series ? t("yes") : "")}
       ${roleList(t("detail_field_genres"), m.genres)}
       ${roleList(t("detail_field_studios"), m.studios)}
       ${roleList(t("detail_field_formats"), m.formats)}
@@ -662,6 +704,7 @@ function showDetail(id) {
       ${field(t("detail_field_plot"), m.plot)}
       ${field(t("detail_field_date_added"), m.date_added)}
     </dl>
+    ${discsBlock(m.discs)}
     <div class="detail-actions">
       <button id="detail-edit">${t("detail_edit")}</button>
       <button id="detail-delete">${t("detail_delete")}</button>
@@ -685,6 +728,8 @@ function fileBadge(path) {
 // first autocomplete pass).
 const DATALIST_FIELDS = [
   { datalist: "dl-country", values: (m) => (m.country ? [m.country] : []) },
+  { datalist: "dl-series", values: (m) => (m.series ? [m.series] : []) },
+  { datalist: "dl-box_set", values: (m) => (m.box_set ? [m.box_set] : []) },
   { datalist: "dl-genres", values: (m) => m.genres || [] },
   { datalist: "dl-studios", values: (m) => m.studios || [] },
   { datalist: "dl-formats", values: (m) => m.formats || [] },
@@ -757,6 +802,8 @@ function fieldsFromAddForm(form) {
     release_year: data.get("release_year") || null,
     rating: data.get("rating") ? Number(data.get("rating")) : null,
     country: data.get("country") || null,
+    series: data.get("series") || null,
+    box_set: data.get("box_set") || null,
     genres: listFromCsv(data.get("genres")),
     studios: listFromCsv(data.get("studios")),
     formats: listFromCsv(data.get("formats")),
@@ -801,6 +848,8 @@ function openEditForm(m) {
   addForm.elements.release_year.value = m.release_year || "";
   addForm.elements.rating.value = m.rating ?? "";
   addForm.elements.country.value = m.country || "";
+  addForm.elements.series.value = m.series || "";
+  addForm.elements.box_set.value = m.box_set || "";
   addForm.elements.genres.value = (m.genres || []).join(", ");
   addForm.elements.studios.value = (m.studios || []).join(", ");
   addForm.elements.formats.value = (m.formats || []).join(", ");

@@ -44,9 +44,12 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   switch between them, scoping the list and groups to whichever is
   active.
 - **Movie detail card**: title, original title, release year, country,
-  genres, studios, formats, regions, screen ratios, subtitles, audio
-  tracks, HDR, extras, tags, cast, crew (with role, when known),
-  rating, notes, plot, and date added.
+  series, box set, whether it's a TV series, genres, studios, formats,
+  regions, screen ratios, subtitles, audio tracks, HDR, extras, tags,
+  cast, crew (with role, when known), rating, notes, plot, and date
+  added — plus, for a TV series, its discs and their episodes (shown
+  only when a disc actually carries something; a bare disc with no
+  episodes and no notes of its own isn't shown).
 - **Statistics panel** (the "📊 Statistics" button in the header):
   total movie count, how many have no cover or no cast, and bar charts
   of genres, studios, formats, countries, release decade, and year
@@ -58,11 +61,12 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 ## 3. Adding, editing, deleting a movie
 
 - **Add a movie**: a form covering title, original title, release
-  year, rating, country, genres, studios, formats, regions, screen
-  ratios, subtitles, audio tracks, HDR, extras, tags, actors and crew
-  (comma-separated; a crew entry can be `"Name"` or `"Name:Role"`),
-  plot and notes. Before anything is written, a preview lists every
-  value typed into one of those comma-separated fields, with a
+  year, rating, country, series, box set, genres, studios, formats,
+  regions, screen ratios, subtitles, audio tracks, HDR, extras, tags,
+  actors and crew (comma-separated; a crew entry can be `"Name"` or
+  `"Name:Role"`), plot and notes. Before anything is written, a
+  preview lists every value typed into one of the comma-separated
+  fields, with a
   "new" badge on the ones that don't already exist in the collection
   (catching a typo before it becomes a permanent duplicate entry) —
   confirming it is what actually adds the movie. The new movie joins
@@ -113,11 +117,18 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   places it in whichever tab is active. The `vc_add` CLI's
   `edit-plan --collection <name>` can move an existing movie to a
   different already-existing sub-collection; see [`CLI.md`](CLI.md).
-- Discs, episodes, box sets, series, or links — Movie Collector's own
-  richer structure beyond a flat movie record — isn't modeled anywhere
-  in VideoNojo yet, read or write. (Region, screen ratio, subtitle,
-  audio track, HDR, extra, and tag — the other such structures — are
-  now modeled, read and write, since v0.25.0.)
+- Links — still not modeled anywhere, read or write.
+- Discs and episodes — read-only (shown on a movie's detail card when
+  a disc actually carries something); no way yet to add, edit, or
+  delete an individual disc or episode from either the application or
+  `vc_add`.
+- Series and box set — read and write (a single value per movie, same
+  as country), but nothing yet for browsing *by* series or box set
+  (no grouping/tab for either, unlike genre/studio/format), and no way
+  to see every movie in a given series or box set at once.
+  (Region, screen ratio, subtitle, audio track, HDR, extra, and tag —
+  the many-to-many structures — are fully modeled, read and write,
+  since v0.25.0.)
 - Online lookup to pre-fill a record from a barcode or a database
   match — not started.
 - Not yet code-signed/notarized with an Apple developer account — no

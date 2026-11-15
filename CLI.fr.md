@@ -64,7 +64,8 @@ locales. Trois zones, comme l'application :
   recherche, tri (menu déroulant ou en-têtes de colonnes cliquables),
   bascule vue liste/grille, pagination.
 - **en bas à droite** : la fiche détail (jaquette, titre, métadonnées,
-  distribution et équipe technique).
+  distribution et équipe technique, plus les disques/épisodes pour une
+  série TV).
 - un bouton **📊 Statistiques**, pour les mêmes graphiques en barres
   par collection (genres/studios/formats/pays/décennie/année d'ajout)
   que ceux de l'application.
@@ -118,7 +119,7 @@ de plan, dans une seule transaction. Pouvoir relire le plan avant
 
 `add-plan` accepte chaque champ scalaire (`--title`,
 `--title-original`, `--release-year`, `--rating`, `--notes`, `--plot`,
-`--upc`, `--country`, `--collection`), et chaque champ répétable
+`--upc`, `--country`, `--collection`, `--series`, `--box-set`), et chaque champ répétable
 (`--genre`, `--studio`, `--format`, `--region`, `--screen-ratio`,
 `--subtitle`, `--audio-track`, `--hdr`, `--extra`, `--tag`, `--actor`,
 `--crew`, une occurrence par valeur). `--collection` doit nommer une sous-collection

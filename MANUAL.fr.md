@@ -47,10 +47,14 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   haut permettent de basculer entre elles, en limitant la liste et les
   groupes à celle qui est active.
 - **Fiche détail d'un film** : titre, titre original, année de sortie,
-  pays, genres, studios, formats, régions, formats d'écran,
-  sous-titres, pistes audio, HDR, bonus, étiquettes, distribution
-  (cast), équipe technique (avec le rôle, quand il est connu), note,
-  notes de l'utilisateur, synopsis, et date d'ajout.
+  pays, série, coffret, si c'est une série TV, genres, studios,
+  formats, régions, formats d'écran, sous-titres, pistes audio, HDR,
+  bonus, étiquettes, distribution (cast), équipe technique (avec le
+  rôle, quand il est connu), note, notes de l'utilisateur, synopsis,
+  et date d'ajout — plus, pour une série TV, ses disques et leurs
+  épisodes (affichés seulement quand un disque porte réellement
+  quelque chose ; un disque vide sans épisode ni contenu propre n'est
+  pas affiché).
 - **Panneau statistiques** (bouton «📊 Statistiques» dans l'en-tête) :
   nombre total de films, combien n'ont pas de jaquette ou pas
   d'acteur, et des graphiques en barres par genre, studio, format,
@@ -64,8 +68,9 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 ## 3. Ajouter, modifier, supprimer un film
 
 - **Ajouter un film** : un formulaire couvrant le titre, le titre
-  original, l'année de sortie, la note, le pays, les genres, les
-  studios, les formats, les régions, les formats d'écran, les
+  original, l'année de sortie, la note, le pays, la série, le coffret,
+  les genres, les studios, les formats, les régions, les formats
+  d'écran, les
   sous-titres, les pistes audio, le HDR, les bonus, les étiquettes,
   les acteurs et l'équipe technique (séparés par des virgules ; une
   entrée d'équipe technique peut être `"Nom"` ou `"Nom:Rôle"`), le
@@ -123,13 +128,19 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   edit-plan --collection <nom>` permet de déplacer un film existant
   vers une autre sous-collection déjà existante ; voir
   [`CLI.fr.md`](CLI.fr.md).
-- Les disques, épisodes, coffrets, séries, ou liens — la structure
-  plus riche propre à Movie Collector, au-delà d'une fiche film à
-  plat — n'est modélisée nulle part encore dans VideoNojo, ni en
-  lecture ni en écriture. (Région, format d'écran, sous-titres, piste
-  audio, HDR, bonus et étiquette — les autres structures de ce
-  type — sont désormais modélisées, en lecture et en écriture, depuis
-  la v0.25.0.)
+- Les liens — toujours pas modélisés, ni en lecture ni en écriture.
+- Les disques et épisodes — lecture seule (affichés sur la fiche
+  détail d'un film quand un disque porte réellement quelque chose) ;
+  aucun moyen pour l'instant d'ajouter, modifier ou supprimer un
+  disque ou un épisode, ni depuis l'application ni depuis `vc_add`.
+- La série et le coffret — lecture et écriture (une seule valeur par
+  film, comme le pays), mais rien encore pour parcourir *par* série
+  ou par coffret (pas de regroupement/onglet pour l'un ou l'autre,
+  contrairement à genre/studio/format), ni pour voir tous les films
+  d'une série ou d'un coffret donné d'un coup. (Région, format
+  d'écran, sous-titres, piste audio, HDR, bonus et étiquette — les
+  structures many-to-many — sont pleinement modélisées, en lecture et
+  en écriture, depuis la v0.25.0.)
 - Recherche en ligne pour pré-remplir une fiche à partir d'un
   code-barres ou d'une correspondance avec une base de données — pas
   commencé.
