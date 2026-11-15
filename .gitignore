@@ -1,3 +1,6 @@
 .DS_Store
 # Internal kickoff planning note — never meant to ship with the repo.
 /MOVIE.md
+# Claude's working fiche for this app — private notes, not the public
+# docs (see ~/.claude/CLAUDE.md on this machine for the rule).
+/VIDEONOJO.md
