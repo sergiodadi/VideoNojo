@@ -1391,6 +1391,25 @@ pub fn ensure_not_real_collection(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Checks whether Movie Collector itself is currently running, via
+/// `pgrep -x`. Writing to `Movie_data` while the app holds it open
+/// risks an inconsistent WAL, or the app silently overwriting our
+/// changes on its next save — this must return `false` before any
+/// real write proceeds. Same check and reasoning as BookNojo's own
+/// `is_book_collector_running` (`pgrep -x "Movie Collector"` matches
+/// the app bundle's exact `CFBundleExecutable` name, confirmed
+/// directly from the installed app's own `Info.plist`).
+pub fn is_movie_collector_running() -> Result<bool> {
+    let output = std::process::Command::new("pgrep")
+        .args(["-x", "Movie Collector"])
+        .output()
+        .context("running pgrep to check whether Movie Collector is open")?;
+    // pgrep exits 0 when it found at least one matching process, 1 when
+    // it found none — both are successful checks, not failures of pgrep
+    // itself, so only its exit code (not a spawn error) distinguishes them.
+    Ok(output.status.success())
+}
+
 /// The package's `Images/` folder, given either the package directory
 /// or its `Movie_data` file directly.
 pub fn images_dir(db: &Path) -> std::path::PathBuf {
@@ -1430,6 +1449,9 @@ pub fn slugify(title: &str, max_len: usize) -> String {
 /// text to preview, just a file copy plus one `UPDATE`.
 pub fn set_cover(db: &Path, movie_id: i64, front: Option<&Path>, back: Option<&Path>) -> Result<()> {
     ensure_not_real_collection(db)?;
+    if is_movie_collector_running()? {
+        anyhow::bail!("Movie Collector is currently running — close it before writing.");
+    }
     let db_path = resolve_db_path(db);
     let images = images_dir(db);
     std::fs::create_dir_all(&images)?;
@@ -1681,6 +1703,9 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 .group-row.active { background: #dce5fb; font-weight: 600; }
 .group-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-count { color: #888; flex-shrink: 0; }
+.group-count.sortable { cursor: pointer; padding: 0.05rem 0.35rem; border-radius: 999px; }
+.group-count.sortable:hover { background: #e4e9ff; color: #2e4bb0; }
+.group-count.sort-active { background: #6a7fe0; color: #fff; }
 #right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 #list-pane { flex: 0 0 240px; min-height: 100px; display: flex; flex-direction: column; overflow: auto; }
 #list-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.8rem; border-bottom: 1px solid #eee; background: #fafafa; flex-shrink: 0; }
@@ -1741,6 +1766,7 @@ let currentDetailId = null;
 let groupField = "genres";
 let selectedGroup = null;
 let selectedLetter = null;
+let groupSortByCount = false;
 let sortKey = "title", sortAsc = true;
 let viewMode = "list", page = 1, panel = "library";
 const PAGE_SIZE = 60;
@@ -1878,7 +1904,9 @@ function computeGroups() {
       counts.set(v, (counts.get(v) || 0) + 1);
     }
   }
-  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  return groupSortByCount
+    ? [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    : [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 function renderGroups() {
@@ -1895,7 +1923,7 @@ function renderGroups() {
   document.getElementById("group-list").innerHTML = `
     <div class="group-row ${allClass}" data-value="">
       <span class="group-label">All</span>
-      <span class="group-count">${scopedMovies().length}</span>
+      <span class="group-count sortable${groupSortByCount ? " sort-active" : ""}" id="group-sort-toggle" title="${groupSortByCount ? "Sorted by count — click to sort alphabetically" : "Sorted alphabetically — click to sort by count"}">${scopedMovies().length}</span>
     </div>
     ${rows}
   `;
@@ -1907,6 +1935,11 @@ function renderGroups() {
       render(document.getElementById("search").value);
     })
   );
+  document.getElementById("group-sort-toggle").addEventListener("click", (e) => {
+    e.stopPropagation();
+    groupSortByCount = !groupSortByCount;
+    renderGroups();
+  });
 }
 
 const SORT_PRESETS = {

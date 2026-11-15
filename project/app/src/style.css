@@ -285,6 +285,22 @@ dialog menu button {
   flex-shrink: 0;
 }
 
+.group-count.sortable {
+  cursor: pointer;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+}
+
+.group-count.sortable:hover {
+  background: #e4e9ff;
+  color: #2e4bb0;
+}
+
+.group-count.sort-active {
+  background: #6a7fe0;
+  color: #fff;
+}
+
 #right-col {
   flex: 1;
   min-width: 0;

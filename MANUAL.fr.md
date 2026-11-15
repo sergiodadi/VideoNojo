@@ -35,7 +35,10 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   séparateurs entre les trois zones se redimensionnent à la souris.
 - **Regroupement** par Genre (par défaut), Studio, Format ou Pays,
   avec une barre de raccourci A-Z au-dessus de la liste qui la limite
-  aux valeurs commençant par une lettre donnée.
+  aux valeurs commençant par une lettre donnée. La liste des groupes
+  est triée par ordre alphabétique par défaut — cliquer sur le nombre
+  à côté de « Tous » la trie par nombre de films à la place (recliquer
+  revient au tri alphabétique).
 - **Recherche** par titre.
 - **Tri** par titre, année, note, pays, ou date d'ajout (plus récent
   d'abord), via le menu déroulant au-dessus de la liste ou en cliquant
@@ -115,6 +118,11 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   est purement et simplement refusée — sans aucun contournement
   accessible depuis l'application — si le chemin ressemble à la vraie
   collection.
+- Chaque écriture est aussi refusée purement et simplement si
+  **Movie Collector lui-même est actuellement lancé** — écrire dans le
+  fichier pendant que l'application le garde ouvert risque un résultat
+  incohérent, ou que l'application écrase le changement à sa prochaine
+  sauvegarde. Fermer Movie Collector d'abord.
 - VideoNojo peut ouvrir la vraie collection en mode **lecture seule**
   pour la parcourir (l'ouverture se fait toujours en
   `SQLITE_OPEN_READ_ONLY` au niveau de la base), mais aucune des

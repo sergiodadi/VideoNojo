@@ -6,9 +6,21 @@ use tauri::Emitter;
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
-    ensure_not_real_collection, load_movies, open_readonly, open_writable, preview_add_movie,
-    resolve_db_path, set_cover, AddMoviePreview, Movie, MovieFields, ReplaceFlags,
+    ensure_not_real_collection, is_movie_collector_running, load_movies, open_readonly,
+    open_writable, preview_add_movie, resolve_db_path, set_cover, AddMoviePreview, Movie,
+    MovieFields, ReplaceFlags,
 };
+
+/// Shared by every write command: refuses to proceed if Movie Collector
+/// itself is currently running (see `is_movie_collector_running`'s own
+/// doc comment for why) — checked right after the real-collection
+/// refusal, before any backup or write.
+fn refuse_if_movie_collector_running() -> Result<(), String> {
+    if is_movie_collector_running().map_err(|e| e.to_string())? {
+        return Err("Movie Collector is currently running — close it before writing.".to_string());
+    }
+    Ok(())
+}
 
 /// The version shown to the user (header badge, both "About
 /// VideoNojo" surfaces), deliberately *not* `CARGO_PKG_VERSION` —
@@ -195,6 +207,7 @@ fn prepare_add_movie(path: String, fields: MovieFields) -> Result<AddMoviePrevie
 fn add_movie(path: String, fields: MovieFields) -> Result<(), String> {
     let path = Path::new(&path);
     ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    refuse_if_movie_collector_running()?;
     backup_database(path).map_err(|e| e.to_string())?;
     let plan = {
         let conn = open_readonly(path).map_err(|e| e.to_string())?;
@@ -211,6 +224,7 @@ fn add_movie(path: String, fields: MovieFields) -> Result<(), String> {
 fn edit_movie(path: String, id: i64, fields: MovieFields, replace: ReplaceFlags) -> Result<(), String> {
     let path = Path::new(&path);
     ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    refuse_if_movie_collector_running()?;
     backup_database(path).map_err(|e| e.to_string())?;
     let plan = {
         let conn = open_readonly(path).map_err(|e| e.to_string())?;
@@ -227,6 +241,7 @@ fn edit_movie(path: String, id: i64, fields: MovieFields, replace: ReplaceFlags)
 fn delete_movie(path: String, id: i64) -> Result<(), String> {
     let path = Path::new(&path);
     ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+    refuse_if_movie_collector_running()?;
     backup_database(path).map_err(|e| e.to_string())?;
     let plan = build_delete_plan(id);
     let conn = open_writable(path).map_err(|e| e.to_string())?;

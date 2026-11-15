@@ -32,7 +32,9 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   three zones can be resized with the mouse.
 - **Grouping** by Genre (default), Studio, Format or Country, with an
   A-Z quick-jump bar above the list that narrows it to values starting
-  with a given letter.
+  with a given letter. The group list is sorted alphabetically by
+  default — clicking the count next to "All" switches it to sort by
+  movie count instead (click again to switch back).
 - **Search** by title.
 - **Sort** by title, year, rating, country, or date added (newest
   first), via the dropdown above the list or by clicking a column
@@ -105,6 +107,10 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   timestamped backup of the file, and is refused outright — with no
   override reachable from the application — if the path looks like the
   real collection.
+- Every write is also refused outright if **Movie Collector itself is
+  currently running** — writing to the file while the app holds it
+  open risks an inconsistent result, or the app silently overwriting
+  the change on its next save. Close Movie Collector first.
 - VideoNojo can open the real collection in **read-only** mode to
   browse it (opening it is always `SQLITE_OPEN_READ_ONLY` at the
   database level), but none of the write actions above have any

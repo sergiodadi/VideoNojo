@@ -43,6 +43,21 @@ original, genres/studios/formats joined with `; `, country, release
 year, rating). The **JSON** is the full nested shape (movies → cast →
 crew), the same data the application itself loads.
 
+A `.mvcp` file can hold several sub-collections. `--list-collections`
+prints each one's name and movie count and stops (no CSV/JSON/HTML is
+written):
+
+```bash
+./vc_export --db "<path>" --list-collections
+```
+
+`--collection "<name>"` scopes CSV/JSON/HTML export to just that
+sub-collection — without it, every sub-collection is exported together:
+
+```bash
+./vc_export --db "<path>" --collection "My movie collection" --json movie_collection.json
+```
+
 ## 3. The static HTML page
 
 ```bash
@@ -181,9 +196,14 @@ Before writing, `commit` and `set-cover` both check, in order:
 1. the database path **does not look like** the real Movie Collector
    collection (`~/Documents/Collectorz/...`) — refusal otherwise, with
    no override;
-2. a timestamped backup of `Movie_data` is created in `backups/`, next
+2. **Movie Collector itself is not currently running** (checked via
+   `pgrep`) — refusal otherwise, since writing to `Movie_data` while
+   the app holds it open risks an inconsistent WAL, or the app
+   silently overwriting the change on its next save. Close the app
+   first, then retry;
+3. a timestamped backup of `Movie_data` is created in `backups/`, next
    to the database;
-3. the plan's SQL runs in a single transaction (`commit`) or the file
+4. the plan's SQL runs in a single transaction (`commit`) or the file
    copy plus column updates happen (`set-cover`).
 
 ## 5. Why an independent database, separate from Movie Collector

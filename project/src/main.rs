@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use video_collector_export::{load_movies, open_readonly, resolve_db_path, write_html};
+use video_collector_export::{load_movies, open_readonly, resolve_db_path, write_html, Connection, ENT_MOVIE};
 
 /// Exports a Movie Collector (.mvcp) collection to CSV/JSON.
 #[derive(Parser)]
@@ -22,13 +22,52 @@ struct Args {
     /// Write a standalone, read-only HTML page to this path.
     #[arg(long)]
     html: Option<PathBuf>,
+
+    /// Only keep the named sub-collection (ZCOLLECTION table, e.g.
+    /// "My movie collection"). A .mvcp file can hold several
+    /// sub-collections; without this option, ALL of them are exported.
+    #[arg(long)]
+    collection: Option<String>,
+
+    /// Lists the available sub-collections (name, movie count) and
+    /// stops — writes no CSV/JSON/HTML.
+    #[arg(long)]
+    list_collections: bool,
+}
+
+/// Prints every sub-collection with its movie count — same shape as
+/// BookNojo's/MusicNojo's own `print_collections`.
+fn print_collections(conn: &Connection) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT col.ZTITLE, COUNT(m.Z_PK)
+         FROM ZCOLLECTION col
+         LEFT JOIN ZCOLLECTIBLE m ON m.ZCOLLECTION = col.Z_PK AND m.Z_ENT = ?1
+         GROUP BY col.Z_PK
+         ORDER BY col.ZTITLE",
+    )?;
+    let mut rows = stmt.query([ENT_MOVIE])?;
+    println!("{:<30} {:>10}", "collection", "movies");
+    while let Some(row) = rows.next()? {
+        let name: String = row.get(0)?;
+        let count: i64 = row.get(1)?;
+        println!("{:<30} {:>10}", name, count);
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
     let conn = open_readonly(&args.db)?;
-    let movies = load_movies(&conn)?;
+
+    if args.list_collections {
+        return print_collections(&conn);
+    }
+
+    let mut movies = load_movies(&conn)?;
+    if let Some(name) = &args.collection {
+        movies.retain(|m| m.collection.as_deref() == Some(name.as_str()));
+    }
 
     println!("{} movie(s) read.", movies.len());
 

@@ -80,6 +80,7 @@ let imagesDir = "";
 let groupField = "genres";
 let selectedGroup = null;
 let selectedLetter = null;
+let groupSortByCount = false;
 let editingMovieId = null;
 let currentCollection = null;
 let sortKey = "title";
@@ -115,6 +116,7 @@ function saveState() {
         groupField,
         selectedGroup,
         selectedLetter,
+        groupSortByCount,
         currentCollection,
         search: document.getElementById("search").value,
         selectedId: currentDetailId,
@@ -154,6 +156,8 @@ const I18N = {
     search_placeholder: "Search by title…",
     count_movies: "{n} movie(s)",
     group_all: "All",
+    group_sort_tooltip_active: "Sorted by count — click to sort alphabetically",
+    group_sort_tooltip_inactive: "Sorted alphabetically — click to sort by count",
     azbar_all: "All",
     collection_default: "My Collection",
     opt_group_genres: "Genre",
@@ -252,6 +256,8 @@ const I18N = {
     search_placeholder: "Rechercher par titre…",
     count_movies: "{n} film(s)",
     group_all: "Tous",
+    group_sort_tooltip_active: "Trié par nombre — cliquer pour trier par ordre alphabétique",
+    group_sort_tooltip_inactive: "Trié par ordre alphabétique — cliquer pour trier par nombre",
     azbar_all: "Tout",
     collection_default: "Ma collection",
     opt_group_genres: "Genre",
@@ -550,7 +556,9 @@ function computeGroups() {
       counts.set(v, (counts.get(v) || 0) + 1);
     }
   }
-  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  return groupSortByCount
+    ? [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    : [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 function renderGroups() {
@@ -569,7 +577,9 @@ function renderGroups() {
   document.getElementById("group-list").innerHTML = `
     <div class="group-row ${allClass}" data-value="">
       <span class="group-label">${t("group_all")}</span>
-      <span class="group-count">${scopedMovies().length}</span>
+      <span class="group-count sortable${groupSortByCount ? " sort-active" : ""}" id="group-sort-toggle" title="${escapeHtml(
+        groupSortByCount ? t("group_sort_tooltip_active") : t("group_sort_tooltip_inactive")
+      )}">${scopedMovies().length}</span>
     </div>
     ${rows}
   `;
@@ -582,6 +592,15 @@ function renderGroups() {
       saveState();
     })
   );
+  // Clicking the "All" row's own count toggles how the group list
+  // below is ordered — stopPropagation so it doesn't also trigger the
+  // row's own click handler above (which would select "All").
+  document.getElementById("group-sort-toggle").addEventListener("click", (e) => {
+    e.stopPropagation();
+    groupSortByCount = !groupSortByCount;
+    renderGroups();
+    saveState();
+  });
 }
 
 // Each preset maps to one of the three underlying comparable fields —
@@ -1069,6 +1088,7 @@ async function boot() {
     currentCollection = saved.currentCollection ?? currentCollection;
     selectedGroup = saved.selectedGroup ?? null;
     selectedLetter = saved.selectedLetter ?? null;
+    groupSortByCount = !!saved.groupSortByCount;
     if (saved.sortKey) {
       sortKey = saved.sortKey;
       sortAsc = !!saved.sortAsc;

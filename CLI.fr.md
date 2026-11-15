@@ -47,6 +47,22 @@ sortie, note). Le **JSON** est la forme imbriquée complète (films →
 distribution → équipe technique), les mêmes données que l'application
 elle-même charge.
 
+Un fichier `.mvcp` peut contenir plusieurs sous-collections.
+`--list-collections` affiche le nom et le nombre de films de chacune et
+s'arrête (aucun CSV/JSON/HTML n'est écrit) :
+
+```bash
+./vc_export --db "<chemin>" --list-collections
+```
+
+`--collection "<nom>"` limite l'export CSV/JSON/HTML à cette seule
+sous-collection — sans cette option, toutes les sous-collections sont
+exportées ensemble :
+
+```bash
+./vc_export --db "<chemin>" --collection "My movie collection" --json movie_collection.json
+```
+
 ## 3. La page HTML statique
 
 ```bash
@@ -192,9 +208,14 @@ l'ordre :
 1. le chemin de la base **ne ressemble pas** à la vraie collection
    Movie Collector (`~/Documents/Collectorz/...`) — refus sinon, sans
    contournement possible ;
-2. une sauvegarde horodatée de `Movie_data` est créée dans
+2. **Movie Collector lui-même n'est pas actuellement lancé** (vérifié
+   via `pgrep`) — refus sinon, car écrire dans `Movie_data` pendant
+   que l'application le garde ouvert risque un WAL incohérent, ou que
+   l'application écrase le changement à sa prochaine sauvegarde.
+   Fermer l'application d'abord, puis réessayer ;
+3. une sauvegarde horodatée de `Movie_data` est créée dans
    `backups/`, à côté de la base ;
-3. le SQL du plan s'exécute en une seule transaction (`commit`) ou la
+4. le SQL du plan s'exécute en une seule transaction (`commit`) ou la
    copie de fichier plus les mises à jour de colonnes ont lieu
    (`set-cover`).
 

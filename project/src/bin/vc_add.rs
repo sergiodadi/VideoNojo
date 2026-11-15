@@ -5,8 +5,8 @@ use clap::{Parser, Subcommand};
 use rusqlite::{Connection, OpenFlags};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
-    ensure_not_real_collection, open_readonly, open_writable, resolve_db_path, set_cover,
-    MovieFields, ReplaceFlags, ENT_MOVIE,
+    ensure_not_real_collection, is_movie_collector_running, open_readonly, open_writable,
+    resolve_db_path, set_cover, MovieFields, ReplaceFlags, ENT_MOVIE,
 };
 
 #[derive(Parser)]
@@ -188,6 +188,9 @@ fn main() -> Result<()> {
         }
         Command::Commit { db, plan } => {
             ensure_not_real_collection(&db)?;
+            if is_movie_collector_running()? {
+                bail!("Movie Collector is currently running — close it before writing.");
+            }
             backup_database(&db)?;
             let sql = std::fs::read_to_string(&plan)?;
             let conn = open_writable(&db)?;
