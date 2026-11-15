@@ -51,7 +51,9 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   formats, régions, formats d'écran, sous-titres, pistes audio, HDR,
   bonus, étiquettes, distribution (cast), équipe technique (avec le
   rôle, quand il est connu), note, notes de l'utilisateur, synopsis,
-  et date d'ajout — plus, pour une série TV, ses disques et leurs
+  date d'ajout, et les liens (IMDB, bande-annonce, sites de critiques…)
+  — cliquer dessus les ouvre dans le navigateur par défaut du système,
+  pas dans l'application — plus, pour une série TV, ses disques et leurs
   épisodes (affichés seulement quand un disque porte réellement
   quelque chose ; un disque vide sans épisode ni contenu propre n'est
   pas affiché).
@@ -128,7 +130,13 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   edit-plan --collection <nom>` permet de déplacer un film existant
   vers une autre sous-collection déjà existante ; voir
   [`CLI.fr.md`](CLI.fr.md).
-- Les liens — toujours pas modélisés, ni en lecture ni en écriture.
+- Les liens — lecture seule (affichés sur la fiche détail, cliquables,
+  s'ouvrent dans le navigateur système) ; aucun moyen pour l'instant
+  d'en ajouter, modifier ou supprimer un, ni depuis l'application ni
+  depuis `vc_add`. La collection de test n'a que des liens en ligne
+  (IMDB, bande-annonce, sites de critiques) pour vérifier — un lien
+  vers un fichier local serait aussi lu et affiché de la même façon,
+  mais ce cas précis n'est pas vérifié.
 - Les disques et épisodes — lecture seule (affichés sur la fiche
   détail d'un film quand un disque porte réellement quelque chose) ;
   aucun moyen pour l'instant d'ajouter, modifier ou supprimer un

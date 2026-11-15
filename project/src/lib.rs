@@ -14,6 +14,16 @@ use serde::{Deserialize, Serialize};
 // at all — each is its own top-level entity with its own table.
 pub const ENT_MOVIE: i64 = 7;
 
+// `ZLINK` reuses one shared table for two sibling entities under the
+// abstract "Link" root (`Z_ENT = 25`, never stored directly) — same
+// numbered-duplicate-column pattern as Music Collector's own
+// `ZDISC`/`ZDISC1`. A `LocalLink` row populates `ZITEMDELEGATE`/
+// `ZMOVIE`; an `OnlineLink` row populates `ZITEMDELEGATE1`/`ZMOVIE1`
+// instead — confirmed directly (every real link in the test
+// collection is `OnlineLink`, all with `ZMOVIE` null/`ZMOVIE1` set).
+const ENT_LOCAL_LINK: i64 = 26;
+const ENT_ONLINE_LINK: i64 = 27;
+
 #[derive(Serialize, Clone)]
 pub struct Credit {
     pub name: String,
@@ -95,6 +105,20 @@ pub struct Disc {
     pub episodes: Vec<Episode>,
 }
 
+/// A local file reference or an online URL (IMDB, trailer, review
+/// site...) attached to a movie, one row of `ZLINK`. Read-only for
+/// now — only `OnlineLink` has any real data to verify a write shape
+/// against (see `ENT_LOCAL_LINK`'s own doc comment).
+#[derive(Serialize, Clone)]
+pub struct Link {
+    pub id: i64,
+    /// `"local"` or `"online"`.
+    pub kind: &'static str,
+    pub description: Option<String>,
+    pub url: Option<String>,
+    pub rank: Option<i64>,
+}
+
 #[derive(Serialize)]
 pub struct Movie {
     pub id: i64,
@@ -103,6 +127,7 @@ pub struct Movie {
     pub cast: Vec<CastMember>,
     pub crew: Vec<Credit>,
     pub discs: Vec<Disc>,
+    pub links: Vec<Link>,
     pub genres: Vec<String>,
     pub studios: Vec<String>,
     pub formats: Vec<String>,
@@ -418,11 +443,50 @@ fn load_discs(conn: &Connection, lookups: &Lookups) -> Result<HashMap<i64, Vec<D
     Ok(map)
 }
 
+/// `ZLINK` rows, grouped by movie — reads whichever numbered pair
+/// (`ZMOVIE`/`ZITEMDELEGATE` or `ZMOVIE1`/`ZITEMDELEGATE1`) the row's
+/// own `Z_ENT` says is the live one, rather than assuming the
+/// unsuffixed column is always populated (see `ENT_LOCAL_LINK`'s own
+/// doc comment).
+fn load_links(conn: &Connection) -> Result<HashMap<i64, Vec<Link>>> {
+    let mut stmt = conn.prepare(
+        "SELECT Z_PK, Z_ENT, ZRANK, ZDESCRIPTION, ZURL, ZMOVIE, ZMOVIE1 FROM ZLINK \
+         ORDER BY COALESCE(ZMOVIE, ZMOVIE1), ZRANK",
+    )?;
+    let mut map: HashMap<i64, Vec<Link>> = HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let ent: i64 = row.get(1)?;
+        let movie_pk: Option<i64> = if ent == ENT_LOCAL_LINK { row.get(5)? } else { row.get(6)? };
+        Ok((
+            ent,
+            movie_pk,
+            Link {
+                id: row.get(0)?,
+                kind: if ent == ENT_LOCAL_LINK { "local" } else { "online" },
+                description: row.get(3)?,
+                url: row.get(4)?,
+                rank: row.get(2)?,
+            },
+        ))
+    })?;
+    for (ent, movie_pk, link) in rows.filter_map(|r| r.ok()) {
+        // Only Link's two known children — guards against some other
+        // schema variant silently landing in the wrong bucket.
+        if ent != ENT_LOCAL_LINK && ent != ENT_ONLINE_LINK {
+            continue;
+        }
+        let Some(movie_pk) = movie_pk else { continue };
+        map.entry(movie_pk).or_default().push(link);
+    }
+    Ok(map)
+}
+
 pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
     let lookups = load_lookups(conn)?;
     let cast_by_movie = load_cast(conn, &lookups)?;
     let crew_by_movie = load_crew(conn, &lookups)?;
     let discs_by_movie = load_discs(conn, &lookups)?;
+    let links_by_movie = load_links(conn)?;
 
     let mut stmt = conn.prepare(
         "SELECT Z_PK, ZTITLE, ZTITLEORIGINAL, ZCOUNTRY, ZCONDITION, ZPACKAGING, \
@@ -457,6 +521,7 @@ pub fn load_movies(conn: &Connection) -> Result<Vec<Movie>> {
                 cast: cast_by_movie.get(&id).cloned().unwrap_or_default(),
                 crew: crew_by_movie.get(&id).cloned().unwrap_or_default(),
                 discs: discs_by_movie.get(&id).cloned().unwrap_or_default(),
+                links: links_by_movie.get(&id).cloned().unwrap_or_default(),
                 genres: lookups.genres.get(&id).cloned().unwrap_or_default(),
                 studios: lookups.studios.get(&id).cloned().unwrap_or_default(),
                 formats: lookups.formats.get(&id).cloned().unwrap_or_default(),
@@ -1414,6 +1479,7 @@ struct HtmlMovie<'a> {
     cast: &'a [CastMember],
     crew: &'a [Credit],
     discs: &'a [Disc],
+    links: &'a [Link],
     genres: &'a [String],
     studios: &'a [String],
     formats: &'a [String],
@@ -1476,6 +1542,7 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
             cast: &m.cast,
             crew: &m.crew,
             discs: &m.discs,
+            links: &m.links,
             genres: &m.genres,
             studios: &m.studios,
             formats: &m.formats,
@@ -1647,6 +1714,9 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 #detail-content dd { margin: 0; }
 #detail-content .disc-heading { font-weight: 600; margin-top: 0.75rem; font-size: 0.85rem; color: #444; }
 #detail-content ol { padding-left: 1.2rem; font-size: 0.9rem; margin: 0.25rem 0 0; }
+.link-list { list-style: none; margin: 0; padding: 0; }
+.link-list a { color: #2e4bb0; }
+.link-list a:hover { text-decoration: underline; }
 #stats-pane { display: none; flex: 1; overflow-y: auto; background: #fbfbfc; padding: 1.5rem; min-height: 0; }
 body.panel-stats #main { display: none; }
 body.panel-stats #stats-pane { display: block; }
@@ -1695,6 +1765,13 @@ function creditList(label, credits) {
   if (!credits || !credits.length) return "";
   const text = credits.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)).join(", ");
   return `<dt>${label}</dt><dd>${escapeHtml(text)}</dd>`;
+}
+
+function linksBlock(label, links) {
+  const items = (links || []).filter((l) => l.url).map((l) =>
+    `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.description || l.url)}</a></li>`
+  ).join("");
+  return items ? `<dt>${label}</dt><dd><ul class="link-list">${items}</ul></dd>` : "";
 }
 
 function discsBlock(discs) {
@@ -1957,6 +2034,7 @@ function showDetail(id) {
       ${field("Notes", m.notes)}
       ${field("Plot", m.plot)}
       ${field("Date added", m.date_added)}
+      ${linksBlock("Links", m.links)}
     </dl>
     ${discsBlock(m.discs)}
   `;
@@ -2068,6 +2146,7 @@ mod tests {
         assert!(movies
             .iter()
             .any(|m| m.discs.iter().any(|d| !d.episodes.is_empty())));
+        assert!(movies.iter().any(|m| !m.links.is_empty()));
     }
 
     /// A fresh, disposable, writable copy of `testdata/` in a new temp

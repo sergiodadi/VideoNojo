@@ -1,6 +1,6 @@
 [package]
 name = "videonojo"
-version = "0.26.0"
+version = "0.27.0"
 description = "VideoNojo"
 authors = ["Serge"]
 license = "MIT"
@@ -19,6 +19,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.12.5", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
 # The CLI tools' shared library (../../src/lib.rs) — reused as-is for
 # reading/writing a collection, rather than duplicating the joins.
 video_collector_export = { path = "../.." }

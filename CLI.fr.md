@@ -64,8 +64,8 @@ locales. Trois zones, comme l'application :
   recherche, tri (menu déroulant ou en-têtes de colonnes cliquables),
   bascule vue liste/grille, pagination.
 - **en bas à droite** : la fiche détail (jaquette, titre, métadonnées,
-  distribution et équipe technique, plus les disques/épisodes pour une
-  série TV).
+  distribution et équipe technique, liens, plus les disques/épisodes
+  pour une série TV).
 - un bouton **📊 Statistiques**, pour les mêmes graphiques en barres
   par collection (genres/studios/formats/pays/décennie/année d'ajout)
   que ceux de l'application.

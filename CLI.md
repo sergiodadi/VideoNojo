@@ -60,7 +60,7 @@ zones, like the application:
   sort (dropdown or clickable column headers), list/grid view toggle,
   pagination.
 - **bottom right**: the detail card (cover, title, metadata, cast and
-  crew, plus discs/episodes for a TV series).
+  crew, links, plus discs/episodes for a TV series).
 - a **📊 Statistics** button, for the same per-collection bar charts
   (genres/studios/formats/countries/decade/year added) the live
   application has.

@@ -183,6 +183,7 @@ const I18N = {
     detail_field_series: "Series",
     detail_field_box_set: "Box set",
     detail_field_tv_series: "TV series",
+    detail_field_links: "Links",
     yes: "Yes",
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
@@ -280,6 +281,7 @@ const I18N = {
     detail_field_series: "Série",
     detail_field_box_set: "Coffret",
     detail_field_tv_series: "Série TV",
+    detail_field_links: "Liens",
     yes: "Oui",
     detail_field_genres: "Genre(s)",
     detail_field_studios: "Studio(s)",
@@ -392,6 +394,18 @@ function field(label, value) {
 
 function roleList(label, names) {
   return names && names.length ? `<dt>${label}</dt><dd>${escapeHtml(names.join(", "))}</dd>` : "";
+}
+
+function linksBlock(label, links) {
+  if (!links || !links.length) return "";
+  const items = links
+    .filter((l) => l.url)
+    .map(
+      (l) =>
+        `<li><a href="${escapeHtml(l.url)}" data-link-url="${escapeHtml(l.url)}">${escapeHtml(l.description || l.url)}</a></li>`
+    )
+    .join("");
+  return items ? `<dt>${label}</dt><dd><ul class="link-list">${items}</ul></dd>` : "";
 }
 
 function creditList(label, credits) {
@@ -703,6 +717,7 @@ function showDetail(id) {
       ${field(t("detail_field_notes"), m.notes)}
       ${field(t("detail_field_plot"), m.plot)}
       ${field(t("detail_field_date_added"), m.date_added)}
+      ${linksBlock(t("detail_field_links"), m.links)}
     </dl>
     ${discsBlock(m.discs)}
     <div class="detail-actions">
@@ -710,6 +725,12 @@ function showDetail(id) {
       <button id="detail-delete">${t("detail_delete")}</button>
     </div>
   `;
+  document.querySelectorAll("#detail-content a[data-link-url]").forEach((el) =>
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.__TAURI__.opener.openUrl(el.dataset.linkUrl);
+    })
+  );
   document.getElementById("detail-edit").addEventListener("click", () => openEditForm(m));
   document.getElementById("detail-delete").addEventListener("click", () => deleteMovieWithConfirm(m));
 }

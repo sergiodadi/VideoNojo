@@ -46,10 +46,12 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 - **Movie detail card**: title, original title, release year, country,
   series, box set, whether it's a TV series, genres, studios, formats,
   regions, screen ratios, subtitles, audio tracks, HDR, extras, tags,
-  cast, crew (with role, when known), rating, notes, plot, and date
-  added — plus, for a TV series, its discs and their episodes (shown
-  only when a disc actually carries something; a bare disc with no
-  episodes and no notes of its own isn't shown).
+  cast, crew (with role, when known), rating, notes, plot, date added,
+  and links (IMDB, trailer, review sites...) — clicking one opens it
+  in the system's default browser, not inside the application — plus,
+  for a TV series, its discs and their episodes (shown only when a
+  disc actually carries something; a bare disc with no episodes and no
+  notes of its own isn't shown).
 - **Statistics panel** (the "📊 Statistics" button in the header):
   total movie count, how many have no cover or no cast, and bar charts
   of genres, studios, formats, countries, release decade, and year
@@ -117,7 +119,12 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   places it in whichever tab is active. The `vc_add` CLI's
   `edit-plan --collection <name>` can move an existing movie to a
   different already-existing sub-collection; see [`CLI.md`](CLI.md).
-- Links — still not modeled anywhere, read or write.
+- Links — read-only (shown on the detail card, clickable, opens in
+  the system browser); no way yet to add, edit, or remove one, from
+  either the application or `vc_add`. The test collection only has
+  online links (IMDB, trailer, review sites) to verify against — a
+  local-file link would also be read and shown the same way, but
+  that specific case is unverified.
 - Discs and episodes — read-only (shown on a movie's detail card when
   a disc actually carries something); no way yet to add, edit, or
   delete an individual disc or episode from either the application or
