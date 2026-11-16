@@ -2,28 +2,26 @@
 
 > 🇫🇷 [Lire en français](README.fr.md)
 
-Movie collection manager — imports a [Movie Collector](https://www.collectorz.com/movie)
-(Collectorz) collection's database into its own tools, and lets you
-browse, export, and edit it without being limited to what the vendor
-app itself offers.
-
-> Private project — the GitHub repository isn't public yet.
-
 ## Why this project
 
-Movie Collector for Mac is an Intel app that depends on Rosetta 2.
-Apple has announced the planned end of Rosetta 2 (full support only
-through macOS 27, largely removed starting with macOS 28, ~fall
-2027) — so Movie Collector has a limited remaining lifespan on an
-up-to-date Mac. VideoNojo reads and writes a copy of an existing
-collection with its own independent tools — export, browse, add, edit,
-delete — so a collection keeps working, and keeps growing, without
-depending on Movie Collector for either, the day it no longer runs.
+Movie collection manager. Movie Collector for Mac is an Intel app
+that depends on Rosetta 2. Apple has announced the planned end of
+Rosetta 2 (full support only through macOS 27, largely removed
+starting with macOS 28, ~fall 2027) — so Movie Collector has a
+limited remaining lifespan on an up-to-date Mac. VideoNojo imports a
+[Movie Collector](https://www.collectorz.com/movie) (Collectorz)
+collection's database into its own tools — reading and writing a copy
+of the existing collection, with export, browse, add, edit, and
+delete — so it keeps working, and keeps growing, without being
+limited to what the vendor app itself offers, or depending on Movie
+Collector for either, the day it no longer runs.
 
 VideoNojo is a sibling project to [BookNojo](https://github.com/sergiodadi/BookNojo)
 and [MusicNojo](https://github.com/sergiodadi/MusicNojo) (the same
 approach and the same underlying Rosetta 2 problem, applied to Book
 Collector and Music Collector respectively).
+
+> Private project — the GitHub repository isn't public yet.
 
 ## What it does today
 
