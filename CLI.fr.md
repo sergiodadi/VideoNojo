@@ -89,7 +89,7 @@ locales. Trois zones, comme l'application :
 Les onglets en haut changent de sous-collection sans relancer la
 commande.
 
-Anglais uniquement (pas de bascule de langue), et il n'y a **pas de
+Elle a la même bascule **EN / FR** que l'application, et il n'y a **pas de
 formulaire d'ajout/modification/suppression** — c'est un instantané en
 lecture seule, délibérément limité au même périmètre que
 l'application elle-même a aujourd'hui. `vc_add` couvre déjà

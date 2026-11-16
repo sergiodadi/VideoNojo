@@ -1608,19 +1608,23 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
 <body>
 <header>
   <h1>VideoNojo</h1>
-  <input id="search" type="search" placeholder="Search by title or cast…" autofocus>
+  <input id="search" type="search" data-i18n-placeholder="search_placeholder" placeholder="Search by title or cast…" autofocus>
   <span id="count"></span>
-  <button id="stats-btn">📊 Statistics</button>
+  <button id="stats-btn" data-i18n="nav_stats">📊 Statistics</button>
+  <span id="lang-toggle">
+    <button id="lang-en" type="button">EN</button>
+    <button id="lang-fr" type="button">FR</button>
+  </span>
 </header>
 <div id="tabs"></div>
 <div id="azbar"></div>
 <main id="main">
   <aside id="groups">
     <select id="group-field">
-      <option value="genres">Genre</option>
-      <option value="studios">Studio</option>
-      <option value="formats">Format</option>
-      <option value="country">Country</option>
+      <option value="genres" data-i18n="opt_group_genres">Genre</option>
+      <option value="studios" data-i18n="opt_group_studios">Studio</option>
+      <option value="formats" data-i18n="opt_group_formats">Format</option>
+      <option value="country" data-i18n="opt_group_country">Country</option>
     </select>
     <div id="group-list"></div>
   </aside>
@@ -1628,35 +1632,35 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
     <div id="list-pane">
       <div id="list-toolbar">
         <select id="sort">
-          <option value="title">Title (A→Z)</option>
-          <option value="year_desc">Year (newest first)</option>
-          <option value="rating_desc">Rating (highest first)</option>
-          <option value="country">Country (A→Z)</option>
-          <option value="date_added_desc">Date added (newest first)</option>
+          <option value="title" data-i18n="opt_sort_title">Title (A→Z)</option>
+          <option value="year_desc" data-i18n="opt_sort_year_desc">Year (newest first)</option>
+          <option value="rating_desc" data-i18n="opt_sort_rating_desc">Rating (highest first)</option>
+          <option value="country" data-i18n="opt_sort_country">Country (A→Z)</option>
+          <option value="date_added_desc" data-i18n="opt_sort_date_added">Date added (newest first)</option>
         </select>
         <div id="view-toggle">
-          <button id="view-list" class="active">☰ List</button>
-          <button id="view-grid">▦ Grid</button>
+          <button id="view-list" class="active" data-i18n="list_view_list">☰ List</button>
+          <button id="view-grid" data-i18n="list_view_grid">▦ Grid</button>
         </div>
       </div>
       <table id="movies">
         <thead><tr>
-          <th data-k="title">Title</th>
-          <th data-k="release_year">Year</th>
-          <th data-k="country">Country</th>
-          <th data-k="genres">Genre(s)</th>
+          <th data-k="title" data-i18n="col_title">Title</th>
+          <th data-k="release_year" data-i18n="col_year">Year</th>
+          <th data-k="country" data-i18n="col_country">Country</th>
+          <th data-k="genres" data-i18n="col_genres">Genre(s)</th>
         </tr></thead>
         <tbody></tbody>
       </table>
       <div id="grid-view"></div>
       <div id="pager">
-        <button id="prev-page">‹ Prev.</button>
+        <button id="prev-page" data-i18n="list_prev">‹ Prev.</button>
         <span id="page-info"></span>
-        <button id="next-page">Next ›</button>
+        <button id="next-page" data-i18n="list_next">Next ›</button>
       </div>
     </div>
     <aside id="detail">
-      <p id="detail-empty">Select a movie.</p>
+      <p id="detail-empty" data-i18n="detail_select">Select a movie.</p>
       <div id="detail-content"></div>
     </aside>
   </div>
@@ -1685,6 +1689,9 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 #count { color: #666; font-size: 0.85rem; }
 #stats-btn { padding: 0.4rem 0.8rem; cursor: pointer; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
 #stats-btn.active { background: #6a7fe0; color: #fff; border-color: #6a7fe0; }
+#lang-toggle { display: flex; gap: 0.2rem; flex-shrink: 0; }
+#lang-toggle button { padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 4px; }
+#lang-toggle button.active { background: #2e4bb0; color: #fff; border-color: #2e4bb0; }
 #tabs { display: flex; gap: 0.4rem; padding: 0.4rem 1rem; overflow-x: auto; background: #f0f2ff; border-bottom: 1px solid #ddd; flex-shrink: 0; }
 #tabs .tab { flex: 0 0 auto; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; cursor: pointer; background: #e4e9ff; border: 1px solid #c3d2f7; color: #2e4bb0; }
 #tabs .tab:hover { background: #dce5fb; border-color: #6a7fe0; }
@@ -1773,6 +1780,167 @@ const PAGE_SIZE = 60;
 const DEFAULT_COLLECTION_KEY = "__default__";
 let currentCollection = null;
 
+// Same i18n shape and FR copy as the app itself (app/src/app.js) — kept
+// deliberately separate from that larger dictionary since this export
+// only ever needs the read/browse-only subset of keys (no add/edit/
+// delete, no cover-setting).
+const I18N = {
+  en: {
+    search_placeholder: "Search by title or cast…",
+    count_movies: "{n} movie(s)",
+    nav_stats: "📊 Statistics",
+    nav_back_to_collection: "← Back to collection",
+    group_all: "All",
+    azbar_all: "All",
+    group_sort_tooltip_active: "Sorted by count — click to sort alphabetically",
+    group_sort_tooltip_inactive: "Sorted alphabetically — click to sort by count",
+    collection_default: "My Collection",
+    opt_group_genres: "Genre",
+    opt_group_studios: "Studio",
+    opt_group_formats: "Format",
+    opt_group_country: "Country",
+    opt_sort_title: "Title (A→Z)",
+    opt_sort_year_desc: "Year (newest first)",
+    opt_sort_rating_desc: "Rating (highest first)",
+    opt_sort_country: "Country (A→Z)",
+    opt_sort_date_added: "Date added (newest first)",
+    list_view_list: "☰ List",
+    list_view_grid: "▦ Grid",
+    list_prev: "‹ Prev.",
+    list_next: "Next ›",
+    list_page_info: "Page {page} of {total}",
+    col_title: "Title",
+    col_year: "Year",
+    col_country: "Country",
+    col_genres: "Genre(s)",
+    detail_select: "Select a movie.",
+    yes: "Yes",
+    detail_field_original_title: "Original title",
+    detail_field_year: "Year",
+    detail_field_country: "Country",
+    detail_field_series: "Series",
+    detail_field_box_set: "Box set",
+    detail_field_tv_series: "TV series",
+    detail_field_genres: "Genre(s)",
+    detail_field_studios: "Studio(s)",
+    detail_field_formats: "Format(s)",
+    detail_field_regions: "Region(s)",
+    detail_field_screen_ratios: "Screen ratio(s)",
+    detail_field_subtitles: "Subtitle(s)",
+    detail_field_audio_tracks: "Audio track(s)",
+    detail_field_hdr: "HDR",
+    detail_field_extras: "Extra(s)",
+    detail_field_tags: "Tag(s)",
+    detail_field_cast: "Cast",
+    detail_field_crew: "Crew",
+    detail_field_rating: "Rating",
+    detail_field_notes: "Notes",
+    detail_field_plot: "Plot",
+    detail_field_date_added: "Date added",
+    detail_field_links: "Links",
+    stats_title: "Statistics — {name}",
+    stats_movies: "{n} movie(s)",
+    stats_no_cover: "{n} with no cover",
+    stats_no_cast: "{n} with no cast",
+    stats_genres: "Genres",
+    stats_studios: "Studios",
+    stats_formats: "Formats",
+    stats_countries: "Countries",
+    stats_by_decade: "By release decade",
+    stats_by_added_year: "By year added",
+    stats_no_data: "No data.",
+  },
+  fr: {
+    search_placeholder: "Rechercher par titre ou distribution…",
+    count_movies: "{n} film(s)",
+    nav_stats: "📊 Statistiques",
+    nav_back_to_collection: "← Retour à la collection",
+    group_all: "Tous",
+    azbar_all: "Tout",
+    group_sort_tooltip_active: "Trié par nombre — cliquer pour trier par ordre alphabétique",
+    group_sort_tooltip_inactive: "Trié par ordre alphabétique — cliquer pour trier par nombre",
+    collection_default: "Ma collection",
+    opt_group_genres: "Genre",
+    opt_group_studios: "Studio",
+    opt_group_formats: "Format",
+    opt_group_country: "Pays",
+    opt_sort_title: "Titre (A→Z)",
+    opt_sort_year_desc: "Année (plus récent d'abord)",
+    opt_sort_rating_desc: "Note (plus élevée d'abord)",
+    opt_sort_country: "Pays (A→Z)",
+    opt_sort_date_added: "Date d'ajout (plus récent d'abord)",
+    list_view_list: "☰ Liste",
+    list_view_grid: "▦ Grille",
+    list_prev: "‹ Préc.",
+    list_next: "Suiv. ›",
+    list_page_info: "Page {page} / {total}",
+    col_title: "Titre",
+    col_year: "Année",
+    col_country: "Pays",
+    col_genres: "Genre(s)",
+    detail_select: "Sélectionnez un film.",
+    yes: "Oui",
+    detail_field_original_title: "Titre original",
+    detail_field_year: "Année",
+    detail_field_country: "Pays",
+    detail_field_series: "Série",
+    detail_field_box_set: "Coffret",
+    detail_field_tv_series: "Série TV",
+    detail_field_genres: "Genre(s)",
+    detail_field_studios: "Studio(s)",
+    detail_field_formats: "Format(s)",
+    detail_field_regions: "Région(s)",
+    detail_field_screen_ratios: "Format(s) d'écran",
+    detail_field_subtitles: "Sous-titre(s)",
+    detail_field_audio_tracks: "Piste(s) audio",
+    detail_field_hdr: "HDR",
+    detail_field_extras: "Bonus",
+    detail_field_tags: "Étiquette(s)",
+    detail_field_cast: "Distribution",
+    detail_field_crew: "Équipe technique",
+    detail_field_rating: "Note",
+    detail_field_notes: "Notes",
+    detail_field_plot: "Synopsis",
+    detail_field_date_added: "Date d'ajout",
+    detail_field_links: "Liens",
+    stats_title: "Statistiques — {name}",
+    stats_movies: "{n} film(s)",
+    stats_no_cover: "{n} sans jaquette",
+    stats_no_cast: "{n} sans distribution",
+    stats_genres: "Genres",
+    stats_studios: "Studios",
+    stats_formats: "Formats",
+    stats_countries: "Pays",
+    stats_by_decade: "Par décennie de sortie",
+    stats_by_added_year: "Par année d'ajout",
+    stats_no_data: "Aucune donnée.",
+  },
+};
+let lang = "en";
+function t(key, vars) {
+  let text = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+  if (vars) for (const [k, v] of Object.entries(vars)) text = text.replace(`{${k}}`, v);
+  return text;
+}
+function applyStaticLabels() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.getElementById("lang-en").classList.toggle("active", lang === "en");
+  document.getElementById("lang-fr").classList.toggle("active", lang === "fr");
+  document.documentElement.lang = lang;
+}
+function setLang(newLang) {
+  lang = newLang;
+  applyStaticLabels();
+  renderTabs();
+  renderGroups();
+  render(document.getElementById("search").value);
+  if (currentDetailId !== null) showDetail(currentDetailId);
+  if (panel === "stats") renderStats();
+}
+document.getElementById("lang-en").addEventListener("click", () => setLang("en"));
+document.getElementById("lang-fr").addEventListener("click", () => setLang("fr"));
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -1819,7 +1987,7 @@ function collectionKey(m) {
   return m.collection || DEFAULT_COLLECTION_KEY;
 }
 function collectionLabel(key) {
-  return key === DEFAULT_COLLECTION_KEY ? "Default collection" : key;
+  return key === DEFAULT_COLLECTION_KEY ? t("collection_default") : key;
 }
 
 function groupValues(m, f) {
@@ -1883,7 +2051,7 @@ function renderAzBar() {
   const el = document.getElementById("azbar");
   el.innerHTML = "";
   const all = document.createElement("button");
-  all.textContent = "All";
+  all.textContent = t("azbar_all");
   all.className = selectedLetter === null ? "active" : "";
   all.addEventListener("click", () => { selectedLetter = null; renderGroups(); });
   el.appendChild(all);
@@ -1922,8 +2090,8 @@ function renderGroups() {
     .join("");
   document.getElementById("group-list").innerHTML = `
     <div class="group-row ${allClass}" data-value="">
-      <span class="group-label">All</span>
-      <span class="group-count sortable${groupSortByCount ? " sort-active" : ""}" id="group-sort-toggle" title="${groupSortByCount ? "Sorted by count — click to sort alphabetically" : "Sorted alphabetically — click to sort by count"}">${scopedMovies().length}</span>
+      <span class="group-label">${t("group_all")}</span>
+      <span class="group-count sortable${groupSortByCount ? " sort-active" : ""}" id="group-sort-toggle" title="${groupSortByCount ? t("group_sort_tooltip_active") : t("group_sort_tooltip_inactive")}">${scopedMovies().length}</span>
     </div>
     ${rows}
   `;
@@ -1997,7 +2165,7 @@ function render(filterText) {
   const start = (page - 1) * PAGE_SIZE;
   const pageRows = rows.slice(start, start + PAGE_SIZE);
 
-  document.getElementById("count").textContent = `${rows.length} movie(s)`;
+  document.getElementById("count").textContent = t("count_movies", { n: rows.length });
   const tbody = document.querySelector("#movies tbody");
   tbody.innerHTML = pageRows
     .map((m) => `
@@ -2021,7 +2189,7 @@ function render(filterText) {
     tile.addEventListener("click", () => showDetail(Number(tile.dataset.id)))
   );
 
-  document.getElementById("page-info").textContent = `Page ${page} of ${totalPages}`;
+  document.getElementById("page-info").textContent = t("list_page_info", { page, total: totalPages });
   document.getElementById("prev-page").disabled = page <= 1;
   document.getElementById("next-page").disabled = page >= totalPages;
 }
@@ -2050,29 +2218,29 @@ function showDetail(id) {
     ${m.front_cover_url ? `<img src="${m.front_cover_url}" alt="">` : ""}
     <h2>${escapeHtml(m.title)}</h2>
     <dl>
-      ${field("Original title", m.title_original)}
-      ${field("Year", m.release_year)}
-      ${field("Country", m.country)}
-      ${field("Series", m.series)}
-      ${field("Box set", m.box_set)}
-      ${field("TV series", m.is_tv_series ? "Yes" : "")}
-      ${roleList("Genre(s)", m.genres)}
-      ${roleList("Studio(s)", m.studios)}
-      ${roleList("Format(s)", m.formats)}
-      ${roleList("Region(s)", m.regions)}
-      ${roleList("Screen ratio(s)", m.screen_ratios)}
-      ${roleList("Subtitle(s)", m.subtitles)}
-      ${roleList("Audio track(s)", m.audio_tracks)}
-      ${roleList("HDR", m.hdr)}
-      ${roleList("Extra(s)", m.extras)}
-      ${roleList("Tag(s)", m.tags)}
-      ${roleList("Cast", (m.cast || []).map((c) => c.name))}
-      ${creditList("Crew", m.crew)}
-      ${field("Rating", m.rating != null ? String(m.rating) : "")}
-      ${field("Notes", m.notes)}
-      ${field("Plot", m.plot)}
-      ${field("Date added", m.date_added)}
-      ${linksBlock("Links", m.links)}
+      ${field(t("detail_field_original_title"), m.title_original)}
+      ${field(t("detail_field_year"), m.release_year)}
+      ${field(t("detail_field_country"), m.country)}
+      ${field(t("detail_field_series"), m.series)}
+      ${field(t("detail_field_box_set"), m.box_set)}
+      ${field(t("detail_field_tv_series"), m.is_tv_series ? t("yes") : "")}
+      ${roleList(t("detail_field_genres"), m.genres)}
+      ${roleList(t("detail_field_studios"), m.studios)}
+      ${roleList(t("detail_field_formats"), m.formats)}
+      ${roleList(t("detail_field_regions"), m.regions)}
+      ${roleList(t("detail_field_screen_ratios"), m.screen_ratios)}
+      ${roleList(t("detail_field_subtitles"), m.subtitles)}
+      ${roleList(t("detail_field_audio_tracks"), m.audio_tracks)}
+      ${roleList(t("detail_field_hdr"), m.hdr)}
+      ${roleList(t("detail_field_extras"), m.extras)}
+      ${roleList(t("detail_field_tags"), m.tags)}
+      ${roleList(t("detail_field_cast"), (m.cast || []).map((c) => c.name))}
+      ${creditList(t("detail_field_crew"), m.crew)}
+      ${field(t("detail_field_rating"), m.rating != null ? String(m.rating) : "")}
+      ${field(t("detail_field_notes"), m.notes)}
+      ${field(t("detail_field_plot"), m.plot)}
+      ${field(t("detail_field_date_added"), m.date_added)}
+      ${linksBlock(t("detail_field_links"), m.links)}
     </dl>
     ${discsBlock(m.discs)}
   `;
@@ -2127,26 +2295,26 @@ function barList(title, entries, limit) {
       <span class="bar-wrap"><span class="bar" style="width:${((count / max) * 100).toFixed(1)}%"></span></span>
       <span class="val">${count}</span>
     </div>`).join("");
-  return `<div class="stat-block"><h3>${escapeHtml(title)}</h3>${rows || `<p class="stat-empty">No data.</p>`}</div>`;
+  return `<div class="stat-block"><h3>${escapeHtml(title)}</h3>${rows || `<p class="stat-empty">${t("stats_no_data")}</p>`}</div>`;
 }
 
 function renderStats() {
   const s = computeStats();
   document.getElementById("stats-pane").innerHTML = `
     <div class="stats-wrap">
-      <h2>Statistics — ${escapeHtml(collectionLabel(currentCollection))}</h2>
+      <h2>${escapeHtml(t("stats_title", { name: collectionLabel(currentCollection) }))}</h2>
       <div class="stat-summary">
-        <span><strong>${s.totalMovies}</strong> movie(s)</span>
-        <span><strong>${s.noCover}</strong> with no cover</span>
-        <span><strong>${s.noCast}</strong> with no cast</span>
+        <span>${t("stats_movies", { n: `<strong>${s.totalMovies}</strong>` })}</span>
+        <span>${t("stats_no_cover", { n: `<strong>${s.noCover}</strong>` })}</span>
+        <span>${t("stats_no_cast", { n: `<strong>${s.noCast}</strong>` })}</span>
       </div>
       <div class="stat-grid">
-        ${barList("Genres", s.genres, 15)}
-        ${barList("Studios", s.studios, 10)}
-        ${barList("Formats", s.formats)}
-        ${barList("Countries", s.countries)}
-        ${barList("By release decade", s.decades)}
-        ${barList("By year added", s.addedYears)}
+        ${barList(t("stats_genres"), s.genres, 15)}
+        ${barList(t("stats_studios"), s.studios, 10)}
+        ${barList(t("stats_formats"), s.formats)}
+        ${barList(t("stats_countries"), s.countries)}
+        ${barList(t("stats_by_decade"), s.decades)}
+        ${barList(t("stats_by_added_year"), s.addedYears)}
       </div>
     </div>`;
 }
@@ -2156,11 +2324,12 @@ function setPanel(next) {
   panel = next;
   document.body.classList.toggle("panel-stats", panel === "stats");
   statsBtn.classList.toggle("active", panel === "stats");
-  statsBtn.textContent = panel === "stats" ? "← Back to collection" : "📊 Statistics";
+  statsBtn.textContent = panel === "stats" ? t("nav_back_to_collection") : t("nav_stats");
   if (panel === "stats") renderStats();
 }
 statsBtn.addEventListener("click", () => setPanel(panel === "stats" ? "library" : "stats"));
 
+applyStaticLabels();
 renderTabs();
 renderGroups();
 render("");

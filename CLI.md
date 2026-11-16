@@ -83,11 +83,11 @@ zones, like the application:
 The tabs at the top switch sub-collection without re-running the
 command.
 
-English only (no language toggle), and there is **no add/edit/delete
-form** — it's a read-only snapshot, deliberately scoped to the same
-feature set the live application has today. `vc_add` already covers
-adding/editing/deleting directly and more safely (a reviewable plan
-before any real write).
+Has the same **EN / FR** toggle as the application, and there is **no
+add/edit/delete form** — it's a read-only snapshot, deliberately
+scoped to the same feature set the live application has today.
+`vc_add` already covers adding/editing/deleting directly and more
+safely (a reviewable plan before any real write).
 
 ## 4. `vc_add` — adding, editing, deleting
 
