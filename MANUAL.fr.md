@@ -39,7 +39,7 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   est triée par ordre alphabétique par défaut — cliquer sur le nombre
   à côté de « Tous » la trie par nombre de films à la place (recliquer
   revient au tri alphabétique).
-- **Recherche** par titre.
+- **Recherche** par titre ou par nom d'acteur.
 - **Tri** par titre, année, note, pays, ou date d'ajout (plus récent
   d'abord), via le menu déroulant au-dessus de la liste ou en cliquant
   sur un en-tête de colonne (recliquer inverse le sens).

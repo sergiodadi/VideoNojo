@@ -35,7 +35,7 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   with a given letter. The group list is sorted alphabetically by
   default — clicking the count next to "All" switches it to sort by
   movie count instead (click again to switch back).
-- **Search** by title.
+- **Search** by title or cast member name.
 - **Sort** by title, year, rating, country, or date added (newest
   first), via the dropdown above the list or by clicking a column
   header (clicking it again reverses the direction).

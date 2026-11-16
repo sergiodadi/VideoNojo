@@ -1608,7 +1608,7 @@ pub fn write_html(path: &Path, movies: &[Movie], images_dir: &Path) -> Result<()
 <body>
 <header>
   <h1>VideoNojo</h1>
-  <input id="search" type="search" placeholder="Search by title…" autofocus>
+  <input id="search" type="search" placeholder="Search by title or cast…" autofocus>
   <span id="count"></span>
   <button id="stats-btn">📊 Statistics</button>
 </header>
@@ -1983,7 +1983,12 @@ function render(filterText) {
   const filter = (filterText || "").toLowerCase();
   const rows = sortRows(
     scopedMovies()
-      .filter((m) => m.title.toLowerCase().includes(filter))
+      .filter(
+        (m) =>
+          !filter ||
+          m.title.toLowerCase().includes(filter) ||
+          (m.cast || []).map((c) => c.name).join(" ").toLowerCase().includes(filter)
+      )
       .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup))
   );
 

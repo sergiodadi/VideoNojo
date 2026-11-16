@@ -153,7 +153,7 @@ const I18N = {
     nav_add: "Add Movie…",
     nav_stats: "📊 Statistics",
     nav_back_to_collection: "← Back to collection",
-    search_placeholder: "Search by title…",
+    search_placeholder: "Search by title or cast…",
     count_movies: "{n} movie(s)",
     group_all: "All",
     group_sort_tooltip_active: "Sorted by count — click to sort alphabetically",
@@ -253,7 +253,7 @@ const I18N = {
     nav_add: "Ajouter un film…",
     nav_stats: "📊 Statistiques",
     nav_back_to_collection: "← Retour à la collection",
-    search_placeholder: "Rechercher par titre…",
+    search_placeholder: "Rechercher par titre ou distribution…",
     count_movies: "{n} film(s)",
     group_all: "Tous",
     group_sort_tooltip_active: "Trié par nombre — cliquer pour trier par ordre alphabétique",
@@ -670,7 +670,12 @@ function render(filterText) {
   const filter = (filterText || "").toLowerCase();
   const rows = sortRows(
     scopedMovies()
-      .filter((m) => m.title.toLowerCase().includes(filter))
+      .filter(
+        (m) =>
+          !filter ||
+          m.title.toLowerCase().includes(filter) ||
+          (m.cast || []).map((c) => c.name).join(" ").toLowerCase().includes(filter)
+      )
       .filter((m) => selectedGroup === null || groupValues(m, groupField).includes(selectedGroup))
   );
 
