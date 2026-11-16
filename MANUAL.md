@@ -45,8 +45,8 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 - **Multiple sub-collections** in a single file — tabs at the top
   switch between them, scoping the list and groups to whichever is
   active.
-- **Movie detail card**: title, original title, release year, country,
-  series, box set, whether it's a TV series, genres, studios, formats,
+- **Movie detail card**: cover, title, original title, release year,
+  country, series, box set, whether it's a TV series, genres, studios, formats,
   regions, screen ratios, subtitles, audio tracks, HDR, extras, tags,
   cast, crew (with role, when known), rating, notes, plot, date added,
   and links (IMDB, trailer, review sites...) — clicking one opens it

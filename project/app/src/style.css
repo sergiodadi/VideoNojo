@@ -490,6 +490,20 @@ dialog menu button {
   font-style: italic;
 }
 
+#detail-content .detail-top {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+#detail-content .cover {
+  width: 220px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 #detail-content dl {
   display: grid;
   grid-template-columns: 6rem 1fr;

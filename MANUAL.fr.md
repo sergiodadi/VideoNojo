@@ -49,7 +49,7 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 - **Plusieurs sous-collections** dans un même fichier — des onglets en
   haut permettent de basculer entre elles, en limitant la liste et les
   groupes à celle qui est active.
-- **Fiche détail d'un film** : titre, titre original, année de sortie,
+- **Fiche détail d'un film** : jaquette, titre, titre original, année de sortie,
   pays, série, coffret, si c'est une série TV, genres, studios,
   formats, régions, formats d'écran, sous-titres, pistes audio, HDR,
   bonus, étiquettes, distribution (cast), équipe technique (avec le

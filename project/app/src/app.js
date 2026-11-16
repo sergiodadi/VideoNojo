@@ -711,8 +711,12 @@ function showDetail(id) {
   const m = movies.find((x) => x.id === id);
   if (!m) return;
   document.getElementById("detail-empty").hidden = true;
+  const coverImgSrc = coverSrc(m.front_cover);
+  const cover = coverImgSrc ? `<img class="cover" src="${coverImgSrc}" alt="">` : "";
   document.getElementById("detail-content").innerHTML = `
     <h2>${escapeHtml(m.title)}</h2>
+    <div class="detail-top">
+    ${cover}
     <dl>
       ${field(t("detail_field_original_title"), m.title_original)}
       ${field(t("detail_field_year"), m.release_year)}
@@ -738,6 +742,7 @@ function showDetail(id) {
       ${field(t("detail_field_date_added"), m.date_added)}
       ${linksBlock(t("detail_field_links"), m.links)}
     </dl>
+    </div>
     ${discsBlock(m.discs)}
     <div class="detail-actions">
       <button id="detail-edit">${t("detail_edit")}</button>
