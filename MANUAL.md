@@ -53,7 +53,9 @@ compile it from source, see [`BUILD.md`](BUILD.md).
   in the system's default browser, not inside the application — plus,
   for a TV series, its discs and their episodes (shown only when a
   disc actually carries something; a bare disc with no episodes and no
-  notes of its own isn't shown).
+  notes of its own isn't shown). Genre, studio, format and country are
+  clickable: clicking one jumps straight to the matching group in the
+  left panel, filtered to that exact value.
 - **Statistics panel** (the "📊 Statistics" button in the header):
   total movie count, how many have no cover or no cast, and bar charts
   of genres, studios, formats, countries, release decade, and year

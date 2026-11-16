@@ -402,6 +402,40 @@ function roleList(label, names) {
   return names && names.length ? `<dt>${label}</dt><dd>${escapeHtml(names.join(", "))}</dd>` : "";
 }
 
+// Genre/studio/format/country pills in the detail card double as a
+// shortcut into the groups panel — click one to jump straight to it
+// filtered by that exact value, same pattern as BookNojo's (genre
+// only) and MusicNojo's (artist + genre) own detail cards. Scoped to
+// exactly the fields the group-field dropdown actually supports
+// (genres/studios/formats/country) — cast/tags/etc. aren't groupable
+// here, so they stay plain text.
+function filterByGroupValue(groupFieldKey, value) {
+  groupField = groupFieldKey;
+  document.getElementById("group-field").value = groupFieldKey;
+  selectedGroup = value;
+  selectedLetter = null;
+  page = 1;
+  renderGroups();
+  render(document.getElementById("search").value);
+  saveState();
+}
+
+function clickableRoleList(label, names, groupFieldKey) {
+  if (!names || !names.length) return "";
+  const spans = names
+    .map(
+      (n) =>
+        `<span class="tag-link" data-group-field="${groupFieldKey}" data-value="${escapeHtml(n)}">${escapeHtml(n)}</span>`
+    )
+    .join(", ");
+  return `<dt>${label}</dt><dd>${spans}</dd>`;
+}
+
+function clickableField(label, value, groupFieldKey) {
+  if (!value) return "";
+  return `<dt>${label}</dt><dd><span class="tag-link" data-group-field="${groupFieldKey}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</span></dd>`;
+}
+
 function linksBlock(label, links) {
   if (!links || !links.length) return "";
   const items = links
@@ -720,13 +754,13 @@ function showDetail(id) {
     <dl>
       ${field(t("detail_field_original_title"), m.title_original)}
       ${field(t("detail_field_year"), m.release_year)}
-      ${field(t("detail_field_country"), m.country)}
+      ${clickableField(t("detail_field_country"), m.country, "country")}
       ${field(t("detail_field_series"), m.series)}
       ${field(t("detail_field_box_set"), m.box_set)}
       ${field(t("detail_field_tv_series"), m.is_tv_series ? t("yes") : "")}
-      ${roleList(t("detail_field_genres"), m.genres)}
-      ${roleList(t("detail_field_studios"), m.studios)}
-      ${roleList(t("detail_field_formats"), m.formats)}
+      ${clickableRoleList(t("detail_field_genres"), m.genres, "genres")}
+      ${clickableRoleList(t("detail_field_studios"), m.studios, "studios")}
+      ${clickableRoleList(t("detail_field_formats"), m.formats, "formats")}
       ${roleList(t("detail_field_regions"), m.regions)}
       ${roleList(t("detail_field_screen_ratios"), m.screen_ratios)}
       ${roleList(t("detail_field_subtitles"), m.subtitles)}
@@ -754,6 +788,9 @@ function showDetail(id) {
       e.preventDefault();
       window.__TAURI__.opener.openUrl(el.dataset.linkUrl);
     })
+  );
+  document.querySelectorAll("#detail-content .tag-link").forEach((el) =>
+    el.addEventListener("click", () => filterByGroupValue(el.dataset.groupField, el.dataset.value))
   );
   document.getElementById("detail-edit").addEventListener("click", () => openEditForm(m));
   document.getElementById("detail-delete").addEventListener("click", () => deleteMovieWithConfirm(m));

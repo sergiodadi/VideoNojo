@@ -59,7 +59,9 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
   pas dans l'application — plus, pour une série TV, ses disques et leurs
   épisodes (affichés seulement quand un disque porte réellement
   quelque chose ; un disque vide sans épisode ni contenu propre n'est
-  pas affiché).
+  pas affiché). Genre, studio, format et pays sont cliquables : cliquer
+  dessus saute directement au groupe correspondant dans le panneau de
+  gauche, filtré sur cette valeur exacte.
 - **Panneau statistiques** (bouton «📊 Statistiques» dans l'en-tête) :
   nombre total de films, combien n'ont pas de jaquette ou pas
   d'acteur, et des graphiques en barres par genre, studio, format,

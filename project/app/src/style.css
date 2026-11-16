@@ -490,6 +490,17 @@ dialog menu button {
   font-style: italic;
 }
 
+#detail-content .tag-link {
+  cursor: pointer;
+  color: #1a1a1a;
+  border-bottom: 1px dashed #999;
+}
+
+#detail-content .tag-link:hover {
+  color: #2e4bb0;
+  border-bottom-color: #2e4bb0;
+}
+
 #detail-content .detail-top {
   display: flex;
   gap: 1.25rem;
