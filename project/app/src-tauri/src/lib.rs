@@ -267,7 +267,7 @@ fn pick_and_set_cover(app: tauri::AppHandle, path: String, id: i64) {
         .pick_file(move |file| {
             let Some(file) = file else { return };
             let Some(local_path) = file.as_path() else { return };
-            match set_cover(Path::new(&path), id, Some(local_path), None) {
+            match set_cover(Path::new(&path), id, Some(local_path), None, false) {
                 Ok(()) => {
                     let _ = app.emit("cover-set", id);
                 }

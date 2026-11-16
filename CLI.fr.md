@@ -99,12 +99,11 @@ l'ajout/la modification/la suppression directement et plus sûrement
 ## 4. `vc_add` — ajout, modification, suppression
 
 > ⚠️ **Toujours tester sur une copie de sa collection d'abord, jamais
-> directement sur l'original.** `vc_add` refuse purement et simplement
-> d'écrire sur un chemin qui ressemble à la vraie collection Movie
-> Collector (`~/Documents/Collectorz/.../Movie Collector.../`) — voir
-> § "Garde-fous" ci-dessous. Il n'y a aucun contournement : toujours
-> pointer vers une copie (voir [`BUILD.fr.md`](BUILD.fr.md) pour générer
-> des copies de test dédiées).
+> directement sur l'original.** Par défaut, `vc_add` refuse purement et
+> simplement d'écrire sur un chemin qui ressemble à la vraie collection
+> Movie Collector (`~/Documents/Collectorz/.../Movie Collector.../`) —
+> voir § "Garde-fous" ci-dessous. Si vous développez ce projet,
+> `BUILD.fr.md` explique comment générer des copies de test dédiées.
 
 ### Planifier, puis valider
 
@@ -206,8 +205,8 @@ Avant d'écrire, `commit` et `set-cover` vérifient tous les deux, dans
 l'ordre :
 
 1. le chemin de la base **ne ressemble pas** à la vraie collection
-   Movie Collector (`~/Documents/Collectorz/...`) — refus sinon, sans
-   contournement possible ;
+   Movie Collector (`~/Documents/Collectorz/...`) — refus immédiat
+   sinon ;
 2. **Movie Collector lui-même n'est pas actuellement lancé** (vérifié
    via `pgrep`) — refus sinon, car écrire dans `Movie_data` pendant
    que l'application le garde ouvert risque un WAL incohérent, ou que
@@ -218,6 +217,31 @@ l'ordre :
 4. le SQL du plan s'exécute en une seule transaction (`commit`) ou la
    copie de fichier plus les mises à jour de colonnes ont lieu
    (`set-cover`).
+
+`--force` lève le refus n°1, mais **n'écrit toujours pas directement** :
+une confirmation tapée à la main dans le terminal prend le relais
+(messages du CLI `vc_add` en anglais, comme le reste de l'outil) :
+
+```
+⚠️  WARNING: .../MyCollection.mvcp/Movie_data is located under
+.../Documents/Collectorz — this is the REAL Movie Collector collection,
+not a test copy.
+   A timestamped backup will be taken before writing, but this
+   operation directly modifies your real data.
+   Type exactly YES to continue (anything else cancels):
+```
+
+Toute réponse autre que `YES` (en majuscules, exactement) annule
+l'opération — aucune écriture n'a lieu, même avec `--force`.
+
+Avant d'utiliser `--force` sur la vraie collection :
+1. Fermez Movie Collector.
+2. Faites une sauvegarde manuelle en plus de celle automatique que
+   `commit`/`set-cover` effectue (ex. copier tout le paquet `.mvcp`).
+3. Relisez le SQL du plan (issu de l'étape `*-plan`) — la dernière
+   chance de repérer un problème avant une vraie écriture.
+4. Lancez `commit --force` (ou `set-cover --force`) et tapez `YES`
+   seulement si tout semble correct.
 
 ## 5. Pourquoi une base indépendante, séparée de Movie Collector
 

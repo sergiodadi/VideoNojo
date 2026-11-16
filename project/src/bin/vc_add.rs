@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use rusqlite::{Connection, OpenFlags};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
-    ensure_not_real_collection, is_movie_collector_running, open_readonly, open_writable,
+    is_movie_collector_running, looks_like_real_collection, open_readonly, open_writable,
     resolve_db_path, set_cover, MovieFields, ReplaceFlags, ENT_MOVIE,
 };
 
@@ -58,6 +58,10 @@ enum Command {
         db: PathBuf,
         #[arg(long)]
         plan: PathBuf,
+        /// Allows writing even if --db looks like the real Movie Collector
+        /// collection — a typed "YES" confirmation is still required.
+        #[arg(long)]
+        force: bool,
     },
     /// Sets a movie's front and/or back cover image, copying the file
     /// into the collection's Images/ folder.
@@ -72,6 +76,10 @@ enum Command {
         /// Local image file to use as the back cover
         #[arg(long)]
         back: Option<PathBuf>,
+        /// Allows writing even if --db looks like the real Movie Collector
+        /// collection — a typed "YES" confirmation is still required.
+        #[arg(long)]
+        force: bool,
     },
     /// Bootstraps a new, independent ".vnc" database from an existing
     /// collection (package + Images/ folder) — a one-time copy, never
@@ -153,6 +161,38 @@ fn cmd_import(source: PathBuf, dest: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+/// Second, independent gate on top of `--force`: even with the flag set,
+/// a real write to what looks like the real collection requires typing
+/// "YES" interactively. Takes `input`/`out` rather than touching stdin/
+/// stdout directly so the prompt logic itself is unit-testable without any
+/// real terminal or file I/O — same shape as BookNojo's own
+/// `confirm_real_write`.
+fn confirm_real_write<R: std::io::BufRead, W: std::io::Write>(
+    input: &mut R,
+    out: &mut W,
+    db_path: &Path,
+    real_prefix: &Path,
+) -> Result<()> {
+    writeln!(
+        out,
+        "⚠️  WARNING: {} is located under {} — this is the REAL Movie Collector \
+         collection, not a test copy.",
+        db_path.display(),
+        real_prefix.display()
+    )?;
+    writeln!(out, "   A timestamped backup will be taken before writing, but this")?;
+    writeln!(out, "   operation directly modifies your real data.")?;
+    write!(out, "   Type exactly YES to continue (anything else cancels): ")?;
+    out.flush()?;
+    let mut answer = String::new();
+    input.read_line(&mut answer)?;
+    if answer.trim() == "YES" {
+        Ok(())
+    } else {
+        bail!("Confirmation refused or incorrect (expected exactly: YES) — nothing was written.");
+    }
+}
+
 fn write_plan(sql: &str, out: Option<PathBuf>) -> Result<()> {
     match out {
         Some(path) => {
@@ -186,8 +226,25 @@ fn main() -> Result<()> {
             let sql = build_delete_plan(id);
             write_plan(&sql, out)?;
         }
-        Command::Commit { db, plan } => {
-            ensure_not_real_collection(&db)?;
+        Command::Commit { db, plan, force } => {
+            match (force, looks_like_real_collection(&db)) {
+                (false, Some(real_prefix)) => {
+                    bail!(
+                        "{} is located under {} — this looks like the real collection.\n\
+                         This command writes for real: use a dedicated copy instead, or pass \
+                         --force if you really know what you're doing.",
+                        db.display(),
+                        real_prefix.display()
+                    );
+                }
+                (true, Some(real_prefix)) => {
+                    let stdin = std::io::stdin();
+                    let mut locked = stdin.lock();
+                    let mut stdout = std::io::stdout();
+                    confirm_real_write(&mut locked, &mut stdout, &db, &real_prefix)?;
+                }
+                (_, None) => {}
+            }
             if is_movie_collector_running()? {
                 bail!("Movie Collector is currently running — close it before writing.");
             }
@@ -197,8 +254,26 @@ fn main() -> Result<()> {
             commit_plan(&conn, &sql)?;
             println!("Committed.");
         }
-        Command::SetCover { db, id, front, back } => {
-            set_cover(&db, id, front.as_deref(), back.as_deref())?;
+        Command::SetCover { db, id, front, back, force } => {
+            match (force, looks_like_real_collection(&db)) {
+                (false, Some(real_prefix)) => {
+                    bail!(
+                        "{} is located under {} — this looks like the real collection.\n\
+                         This command writes for real: use a dedicated copy instead, or pass \
+                         --force if you really know what you're doing.",
+                        db.display(),
+                        real_prefix.display()
+                    );
+                }
+                (true, Some(real_prefix)) => {
+                    let stdin = std::io::stdin();
+                    let mut locked = stdin.lock();
+                    let mut stdout = std::io::stdout();
+                    confirm_real_write(&mut locked, &mut stdout, &db, &real_prefix)?;
+                }
+                (_, None) => {}
+            }
+            set_cover(&db, id, front.as_deref(), back.as_deref(), force)?;
         }
         Command::Import { source, dest } => {
             cmd_import(source, dest)?;
@@ -223,5 +298,25 @@ mod tests {
             default_import_dest(Path::new("Already.vnc")),
             PathBuf::from("collection/Already.vnc")
         );
+    }
+
+    fn confirm(answer: &str) -> Result<()> {
+        let mut input = std::io::Cursor::new(answer.as_bytes());
+        let mut out = Vec::new();
+        confirm_real_write(&mut input, &mut out, Path::new("/x/Documents/Collectorz/y"), Path::new("/x/Documents/Collectorz"))
+    }
+
+    #[test]
+    fn confirm_real_write_accepts_only_an_exact_yes() {
+        assert!(confirm("YES\n").is_ok());
+        // Trailing whitespace from the terminal is forgiven...
+        assert!(confirm("YES \n").is_ok());
+        // ...but anything else — including a casual lowercase or a plain
+        // Enter — must refuse. This is the safety gate: it must never
+        // succeed by accident.
+        assert!(confirm("yes\n").is_err());
+        assert!(confirm("y\n").is_err());
+        assert!(confirm("\n").is_err());
+        assert!(confirm("").is_err());
     }
 }

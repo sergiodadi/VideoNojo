@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use rusqlite::OptionalExtension;
@@ -1375,13 +1375,29 @@ pub fn build_delete_plan(id: i64) -> String {
     .join("\n")
 }
 
-/// Refuses to operate on what looks like a real, live Movie Collector
-/// collection — only ever a test/working copy. Same hard rule as the
-/// BookNojo/MusicNojo projects' tools.
-pub fn ensure_not_real_collection(path: &Path) -> Result<()> {
+/// Returns `~/Documents/Collectorz` if `path` looks like a real, live
+/// Movie Collector collection — lets a caller react differently (the
+/// CLI's `--force` override) instead of always refusing outright like
+/// `ensure_not_real_collection` below. Same shape as BookNojo's own
+/// `looks_like_real_collection`, just app-specific detection here.
+pub fn looks_like_real_collection(path: &Path) -> Option<PathBuf> {
     let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let text = canonical.to_string_lossy().to_lowercase();
     if text.contains("collectorz") && (text.contains("movie collector") || text.contains("movie_collector")) {
+        let home = std::env::var_os("HOME")?;
+        Some(PathBuf::from(home).join("Documents").join("Collectorz"))
+    } else {
+        None
+    }
+}
+
+/// Refuses to operate on what looks like a real, live Movie Collector
+/// collection — only ever a test/working copy. Used by the app (which
+/// never offers any override) and as the CLI's own default without
+/// `--force`. Same hard rule as the BookNojo/MusicNojo projects' tools.
+pub fn ensure_not_real_collection(path: &Path) -> Result<()> {
+    if looks_like_real_collection(path).is_some() {
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         anyhow::bail!(
             "{} looks like the real Movie Collector collection path \
              (~/Documents/Collectorz/...) — refused. Use a test copy only.",
@@ -1446,9 +1462,20 @@ pub fn slugify(title: &str, max_len: usize) -> String {
 /// every other scalar field on `ZCOLLECTIBLE`). Does its own safety
 /// checks rather than relying on the caller, since this isn't a
 /// plan-then-commit write like `add`/`edit`/`delete` — there's no SQL
-/// text to preview, just a file copy plus one `UPDATE`.
-pub fn set_cover(db: &Path, movie_id: i64, front: Option<&Path>, back: Option<&Path>) -> Result<()> {
-    ensure_not_real_collection(db)?;
+/// text to preview, just a file copy plus one `UPDATE`. `force` skips
+/// the real-collection refusal — only `vc_add`'s own CLI ever passes
+/// `true`, and only after its own typed-confirmation gate; the app
+/// always passes `false`, no override available there.
+pub fn set_cover(
+    db: &Path,
+    movie_id: i64,
+    front: Option<&Path>,
+    back: Option<&Path>,
+    force: bool,
+) -> Result<()> {
+    if !force {
+        ensure_not_real_collection(db)?;
+    }
     if is_movie_collector_running()? {
         anyhow::bail!("Movie Collector is currently running — close it before writing.");
     }

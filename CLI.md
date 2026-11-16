@@ -92,11 +92,11 @@ safely (a reviewable plan before any real write).
 ## 4. `vc_add` — adding, editing, deleting
 
 > ⚠️ **Always test on a copy of your collection first, never directly
-> on the original.** `vc_add` refuses outright to write to a path that
-> looks like the real Movie Collector collection
+> on the original.** By default, `vc_add` refuses outright to write to
+> a path that looks like the real Movie Collector collection
 > (`~/Documents/Collectorz/.../Movie Collector.../`) — see § "Safety
-> gates" below. There is no override: point it at a copy, always (see
-> [`BUILD.md`](BUILD.md) for how to generate dedicated test copies).
+> gates" below. If you are developing this project, `BUILD.md` explains
+> how to generate dedicated test copies.
 
 ### Plan, then commit
 
@@ -194,8 +194,8 @@ first.
 Before writing, `commit` and `set-cover` both check, in order:
 
 1. the database path **does not look like** the real Movie Collector
-   collection (`~/Documents/Collectorz/...`) — refusal otherwise, with
-   no override;
+   collection (`~/Documents/Collectorz/...`) — immediate refusal
+   otherwise;
 2. **Movie Collector itself is not currently running** (checked via
    `pgrep`) — refusal otherwise, since writing to `Movie_data` while
    the app holds it open risks an inconsistent WAL, or the app
@@ -205,6 +205,30 @@ Before writing, `commit` and `set-cover` both check, in order:
    to the database;
 4. the plan's SQL runs in a single transaction (`commit`) or the file
    copy plus column updates happen (`set-cover`).
+
+`--force` lifts refusal #1, but **still doesn't write directly**: a
+confirmation typed by hand in the terminal takes over:
+
+```
+⚠️  WARNING: .../MyCollection.mvcp/Movie_data is located under
+.../Documents/Collectorz — this is the REAL Movie Collector collection,
+not a test copy.
+   A timestamped backup will be taken before writing, but this
+   operation directly modifies your real data.
+   Type exactly YES to continue (anything else cancels):
+```
+
+Any answer other than `YES` (exact capital letters) cancels the
+operation — no write happens, even with `--force`.
+
+Before using `--force` on the real collection:
+1. Close Movie Collector.
+2. Make a manual backup in addition to the automatic one that `commit`/
+   `set-cover` makes (e.g. copy the whole `.mvcp` package).
+3. Review the plan's SQL (from the `*-plan` step) — the last chance to
+   spot a problem before a real write.
+4. Run `commit --force` (or `set-cover --force`) and type `YES` only if
+   everything looks right.
 
 ## 5. Why an independent database, separate from Movie Collector
 
