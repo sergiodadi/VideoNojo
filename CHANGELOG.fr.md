@@ -6,6 +6,41 @@ Historique des **versions publiées sur GitHub**, une entrée par
 tag/release — même convention que le [CHANGELOG.md de BookNojo](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 et le [CHANGELOG.md de MusicNojo](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b2] - 2026-11-16
+
+Nouveau `.dmg` (`VideoNojo_0.33.0_aarch64.dmg`). Tout ce qui a été
+ajouté depuis v1.0.0b1 :
+
+- **Navigation** : barre de saut rapide A-Z, menu déroulant de tri et
+  en-têtes de colonnes cliquables/triables, bascule vue liste/grille
+  (la grille affiche les vignettes de jaquette), pagination, un
+  panneau de statistiques (genres/studios/formats/pays/décennie de
+  sortie/année d'ajout) — dans l'application et dans l'export HTML
+  statique.
+- **Plus de champs, lecture et écriture** : région, format d'écran,
+  sous-titre, piste audio, HDR, bonus, étiquette ; série et coffret ;
+  jaquettes (`vc_add set-cover`, CLI et interface).
+- **Plus de champs, lecture seule** : disques et épisodes pour les
+  séries TV ; liens (IMDB, bande-annonce, sites de critiques…),
+  cliquables, ouvrant le navigateur par défaut du système.
+- **Fiche détail d'un film** : affiche maintenant la jaquette
+  (auparavant seules les vignettes liste/grille l'affichaient) ;
+  genre, studio, format et pays sont cliquables, et sautent
+  directement au groupe correspondant dans le panneau de gauche.
+- **La recherche** correspond maintenant aussi aux noms d'acteurs, pas
+  seulement au titre.
+- L'export HTML statique (`vc_export --html`) a maintenant la même
+  bascule **EN / FR** que l'application — il restait auparavant en
+  anglais uniquement.
+- `vc_add commit`/`set-cover` ont gagné un drapeau `--force`, qui lève
+  le refus automatique sur un chemin qui ressemble à la vraie
+  collection Movie Collector. Une confirmation `YES` tapée dans le
+  terminal reste exigée avant toute écriture réelle.
+- Une vérification refuse désormais toute écriture si Movie Collector
+  lui-même est actuellement lancé.
+- `vc_export` a gagné `--collection`/`--list-collections` pour limiter
+  un export CSV/JSON à une seule sous-collection.
+
 ## [v1.0.0b1] - 2026-11-14
 
 Première version bêta de VideoNojo, taguée sur GitHub, avec un `.dmg`
