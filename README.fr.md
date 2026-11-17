@@ -22,7 +22,8 @@ et [MusicNojo](https://github.com/sergiodadi/MusicNojo) (la même
 approche et le même problème de fond avec Rosetta 2, appliqués à Book
 Collector et Music Collector respectivement).
 
-> Projet privé — le dépôt GitHub n'est pas encore public.
+> Projet en développement actif, disponible publiquement depuis le
+> 17/11/2026.
 
 ## Ce qu'il fait aujourd'hui
 
