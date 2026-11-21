@@ -70,6 +70,11 @@ Pour compiler depuis les sources plutôt que d'utiliser le `.dmg`, voir
 > Testé uniquement sur **macOS Tahoe (26)** — non vérifié sur d'autres
 > versions de macOS.
 
+## Copie d'écran
+
+![Vue bibliothèque](screenshots/library.png)
+![Ajouter un film](screenshots/add-movie.png)
+
 ## Historique des versions
 
 Voir [`CHANGELOG.fr.md`](CHANGELOG.fr.md).
