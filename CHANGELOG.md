@@ -6,6 +6,19 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b3] - 2026-11-21
+
+New `.dmg` (`VideoNojo_1.0.0-b3_aarch64.dmg` — the `.dmg` filename now
+tracks the published release tag instead of Cargo.toml's per-commit dev
+version, fixed in `tauri.conf.json`; previous releases wrongly showed an
+internal dev version number in the filename). Also:
+
+- The repository is now **public**.
+- README: added a "Screenshots" section (two screenshots of the app)
+  right after Installation.
+- README: reworded the intro to lead with "Why this project", merging it
+  with the opening paragraph.
+
 ## [v1.0.0b2] - 2026-11-16
 
 New `.dmg` (`VideoNojo_0.33.0_aarch64.dmg`). Everything added since
