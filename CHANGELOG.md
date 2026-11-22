@@ -6,6 +6,16 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b7] - 2026-11-22
+
+- A cover image can now be picked directly from the "Add Movie" form
+  (optional "Choose an image…" button) and gets attached right after
+  the movie is added — previously only possible afterwards, via the
+  Statistics panel's "no cover" list.
+- Header emoji (app title, "Open Collection"/"Add Movie" buttons) and
+  the help window's language-toggle button order now match BookNojo
+  and MusicNojo, found during a cross-app homogeneity review.
+
 ## [v1.0.0b6] - 2026-11-22
 
 - "VideoNojo Help > About VideoNojo" (a plain name+version dialog

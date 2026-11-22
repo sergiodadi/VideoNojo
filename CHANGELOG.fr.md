@@ -6,6 +6,19 @@ Historique des **versions publiées sur GitHub**, une entrée par
 tag/release — même convention que le [CHANGELOG.md de BookNojo](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 et le [CHANGELOG.md de MusicNojo](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b7] - 2026-11-22
+
+- Une jaquette peut désormais être choisie directement depuis le
+  formulaire « Ajouter un film » (bouton facultatif « Choisir une
+  image… »), attachée au film dès qu'il est ajouté — auparavant
+  possible seulement après coup, via la liste « sans couverture » du
+  panneau Statistiques.
+- Les emoji d'en-tête (titre de l'app, boutons « Ouvrir une
+  collection »/« Ajouter un film ») et l'ordre des boutons du
+  sélecteur de langue dans la fenêtre d'aide correspondent maintenant
+  à BookNojo et MusicNojo, suite à un audit d'homogénéité entre les 3
+  apps.
+
 ## [v1.0.0b6] - 2026-11-22
 
 - « VideoNojo Help > About VideoNojo » (une simple boîte nom+version
