@@ -6,6 +6,11 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b4] - 2026-11-22
+
+- New app icon: a flat orange-to-red gradient square with a white "VN"
+  monogram, replacing the generic default Tauri icon used until now.
+
 ## [v1.0.0b3] - 2026-11-21
 
 New `.dmg` (`VideoNojo_1.0.0-b3_aarch64.dmg` — the `.dmg` filename now
