@@ -6,6 +6,12 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b5] - 2026-11-22
+
+- The detail panel is now a dark card (matching BookNojo's and MusicNojo's
+  own detail panel), instead of a light one — the title and "Links" are
+  now readable against the new dark background.
+
 ## [v1.0.0b4] - 2026-11-22
 
 - New app icon: a flat orange-to-red gradient square with a white "VN"

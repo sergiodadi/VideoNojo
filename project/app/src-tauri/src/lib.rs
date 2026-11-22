@@ -31,7 +31,7 @@ fn refuse_if_movie_collector_running() -> Result<(), String> {
 /// before building a new release). Set to the v1.0.0b1 tag **before**
 /// building that release's `.dmg`, not after — **update this by hand
 /// at every future release** the same way.
-const DISPLAY_VERSION: &str = "1.0.0b4";
+const DISPLAY_VERSION: &str = "1.0.0b5";
 
 /// The app's HTML shell has no build step to burn a version string
 /// into it, so the frontend asks for it over IPC instead.
