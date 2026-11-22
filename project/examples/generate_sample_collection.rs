@@ -239,7 +239,7 @@ fn main() -> Result<()> {
             crew: list(movie.crew),
             ..Default::default()
         };
-        let plan = build_plan(&conn, &fields)?;
+        let (plan, _pk) = build_plan(&conn, &fields)?;
         conn.execute_batch(&plan)?;
     }
 

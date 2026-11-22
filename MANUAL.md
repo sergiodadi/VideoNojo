@@ -87,6 +87,11 @@ compile it from source, see [`BUILD.md`](BUILD.md).
 - After any add, edit or delete, the library is automatically
   reloaded: the change appears immediately, with no manual action
   needed.
+- A cover can also be picked right from the Add-movie form (a "Choose
+  an image…" button, optional): it's attached to the movie once the
+  add is confirmed. If the add succeeds but the cover can't be saved,
+  the movie is still added — fix the cover afterward from the "no
+  cover" list in the Statistics panel, or with `vc_add set-cover`.
 - **Setting a cover image**: from the statistics panel, expanding "N
   with no cover" and clicking a movie in that list opens the native
   macOS file picker to choose a front cover image — it's copied into

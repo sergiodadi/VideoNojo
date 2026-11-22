@@ -96,6 +96,13 @@ voir [`BUILD.fr.md`](BUILD.fr.md).
 - Après tout ajout, modification ou suppression, la bibliothèque se
   recharge automatiquement : le changement apparaît immédiatement,
   sans action manuelle nécessaire.
+- Une jaquette peut aussi être choisie directement depuis le
+  formulaire d'ajout (bouton « Choisir une image… », facultatif) :
+  elle est attachée au film une fois l'ajout confirmé. Si l'ajout
+  réussit mais que la jaquette ne peut pas être enregistrée, le film
+  est quand même ajouté — il suffit de corriger la jaquette ensuite
+  depuis la liste « sans jaquette » du panneau Statistiques, ou avec
+  `vc_add set-cover`.
 - **Définir une jaquette** : depuis le panneau statistiques, dérouler
   « N sans jaquette » puis cliquer sur un film de cette liste ouvre le
   sélecteur de fichier natif macOS pour choisir une image de jaquette

@@ -203,18 +203,33 @@ fn prepare_add_movie(path: String, fields: MovieFields) -> Result<AddMoviePrevie
 /// Writes a new movie — only ever reachable after `prepare_add_movie`
 /// resolved it and the user confirmed. Same real-collection refusal
 /// and pre-write backup as the CLI's own `commit`.
+///
+/// `cover_path` (optional) comes from the add form's "Choose an
+/// image…" button (see `pick_cover_for_new_movie`): once the movie is
+/// created and its `Z_PK` known (`build_plan` now returns it alongside
+/// the SQL text), the cover is set via `set_cover` — a second,
+/// independent write, not the same transaction as the add. If it
+/// fails, the movie is still added (recoverable afterwards from the
+/// Statistics panel's "no cover" list); the returned message says so.
 #[tauri::command]
-fn add_movie(path: String, fields: MovieFields) -> Result<(), String> {
-    let path = Path::new(&path);
-    ensure_not_real_collection(path).map_err(|e| e.to_string())?;
+fn add_movie(path: String, fields: MovieFields, cover_path: Option<String>) -> Result<String, String> {
+    let path_ref = Path::new(&path);
+    ensure_not_real_collection(path_ref).map_err(|e| e.to_string())?;
     refuse_if_movie_collector_running()?;
-    backup_database(path).map_err(|e| e.to_string())?;
-    let plan = {
-        let conn = open_readonly(path).map_err(|e| e.to_string())?;
+    backup_database(path_ref).map_err(|e| e.to_string())?;
+    let (plan, movie_pk) = {
+        let conn = open_readonly(path_ref).map_err(|e| e.to_string())?;
         build_plan(&conn, &fields).map_err(|e| e.to_string())?
     };
-    let conn = open_writable(path).map_err(|e| e.to_string())?;
-    commit_plan(&conn, &plan).map_err(|e| e.to_string())
+    let conn = open_writable(path_ref).map_err(|e| e.to_string())?;
+    commit_plan(&conn, &plan).map_err(|e| e.to_string())?;
+    let Some(cover_path) = cover_path else {
+        return Ok("Movie added.".to_string());
+    };
+    match set_cover(path_ref, movie_pk, Some(Path::new(&cover_path)), None, false) {
+        Ok(()) => Ok("Movie added with its cover.".to_string()),
+        Err(e) => Ok(format!("Movie added, but the cover could not be saved ({e:#}).")),
+    }
 }
 
 /// Writes changes to an existing movie — same real-collection refusal
@@ -275,6 +290,28 @@ fn pick_and_set_cover(app: tauri::AppHandle, path: String, id: i64) {
                     let _ = app.emit("cover-set-error", e.to_string());
                 }
             }
+        });
+}
+
+/// Native picker for a cover image to attach to a movie that doesn't
+/// exist yet — used by the add-movie form's "Choose an image…"
+/// button, before `add_movie` has run at all. Can't write a cover
+/// directly (there's no row to attach it to yet), so this only emits
+/// the picked path back as an "add-cover-picked" event; the frontend
+/// holds onto it and sends it along with the next `add_movie` call.
+/// Same async-callback shape as `pick_and_set_cover`/`pick_collection`
+/// — no error event, since the only way this doesn't emit is the user
+/// cancelling the picker, which isn't an error.
+#[tauri::command]
+fn pick_cover_for_new_movie(app: tauri::AppHandle) {
+    app.dialog()
+        .file()
+        .set_title("Choose a cover image")
+        .add_filter("Image", &["jpg", "jpeg", "png", "gif", "bmp"])
+        .pick_file(move |file| {
+            let Some(file) = file else { return };
+            let Some(local_path) = file.as_path() else { return };
+            let _ = app.emit("add-cover-picked", local_path.to_string_lossy().to_string());
         });
 }
 
@@ -379,7 +416,8 @@ pub fn run() {
             add_movie,
             edit_movie,
             delete_movie,
-            pick_and_set_cover
+            pick_and_set_cover,
+            pick_cover_for_new_movie
         ])
         .setup(|app| {
             let menu = build_menu(app.handle())?;

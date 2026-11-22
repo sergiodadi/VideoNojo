@@ -149,8 +149,8 @@ function loadSavedState() {
 // MusicNojo's own i18n work used.
 const I18N = {
   en: {
-    nav_open: "Open Collection…",
-    nav_add: "Add Movie…",
+    nav_open: "📂 Open Collection…",
+    nav_add: "➕ Add Movie…",
     nav_stats: "📊 Statistics",
     nav_back_to_collection: "← Back to collection",
     search_placeholder: "Search by title or cast…",
@@ -207,6 +207,10 @@ const I18N = {
     detail_field_date_added: "Date added",
     delete_confirm: 'Delete "{title}"? This cannot be undone.',
     cover_set_failed: "Setting the cover failed: {err}",
+    add_cover_label: "Cover (optional)",
+    add_cover_choose: "Choose an image…",
+    add_cover_chosen: "Chosen: {name}",
+    add_cover_remove: "Remove",
     form_title_add: "Add Movie",
     form_title_edit: "Edit: {title}",
     form_label_title: "Title",
@@ -249,8 +253,8 @@ const I18N = {
     stats_no_data: "No data.",
   },
   fr: {
-    nav_open: "Ouvrir une collection…",
-    nav_add: "Ajouter un film…",
+    nav_open: "📂 Ouvrir une collection…",
+    nav_add: "➕ Ajouter un film…",
     nav_stats: "📊 Statistiques",
     nav_back_to_collection: "← Retour à la collection",
     search_placeholder: "Rechercher par titre ou distribution…",
@@ -307,6 +311,10 @@ const I18N = {
     detail_field_date_added: "Date d'ajout",
     delete_confirm: 'Supprimer « {title} » ? Cette action est irréversible.',
     cover_set_failed: "Échec de la mise à jour de la jaquette : {err}",
+    add_cover_label: "Couverture (optionnel)",
+    add_cover_choose: "Choisir une image…",
+    add_cover_chosen: "Choisi : {name}",
+    add_cover_remove: "Retirer",
     form_title_add: "Ajouter un film",
     form_title_edit: "Modifier : {title}",
     form_label_title: "Titre",
@@ -912,6 +920,28 @@ function fieldsFromAddForm(form) {
 }
 
 let pendingAddFields = null;
+let pendingAddCoverPath = null;
+
+// Mirrors BookNojo's/MusicNojo's own add-time cover picker: the native
+// picker can't write a cover before the movie exists, so it just emits
+// the chosen path back as an "add-cover-picked" event (wired in boot()
+// below) and this label reflects whatever that listener last stored in
+// pendingAddCoverPath.
+function updateAddCoverChosenLabel() {
+  const chosenEl = document.getElementById("addCoverChosen");
+  if (!chosenEl) return;
+  if (!pendingAddCoverPath) {
+    chosenEl.textContent = "";
+    return;
+  }
+  const name = pendingAddCoverPath.split("/").pop();
+  chosenEl.innerHTML = `${escapeHtml(t("add_cover_chosen", { name }))} — <a href="#" id="addCoverRemoveLink">${escapeHtml(t("add_cover_remove"))}</a>`;
+  document.getElementById("addCoverRemoveLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    pendingAddCoverPath = null;
+    updateAddCoverChosenLabel();
+  });
+}
 
 function showAddPreview(preview) {
   document.getElementById("add-preview-title").textContent = preview.title;
@@ -931,6 +961,12 @@ function openEditForm(m) {
   const addDialog = document.getElementById("add-movie-dialog");
   const addForm = document.getElementById("add-movie-form");
   addForm.reset();
+  // Cover picking only applies at add-time (same scope as BookNojo's
+  // own add-time cover picker) — editing an existing movie keeps using
+  // the Statistics panel's "no cover" list / pick_and_set_cover.
+  pendingAddCoverPath = null;
+  document.getElementById("add-movie-cover-field").style.display = "none";
+  updateAddCoverChosenLabel();
   addForm.elements.title.value = m.title || "";
   addForm.elements.release_year.value = m.release_year || "";
   addForm.elements.rating.value = m.rating ?? "";
@@ -1231,9 +1267,19 @@ async function boot() {
     document.getElementById("add-movie-dialog-title").textContent = t("form_title_add");
     document.getElementById("add-movie-submit").textContent = t("form_next");
     document.getElementById("add-movie-error").textContent = "";
+    pendingAddCoverPath = null;
+    document.getElementById("add-movie-cover-field").style.display = "";
+    updateAddCoverChosenLabel();
     addDialog.showModal();
   });
   document.getElementById("add-movie-cancel").addEventListener("click", () => addDialog.close());
+  document.getElementById("addCoverPickBtn").addEventListener("click", () => {
+    invoke("pick_cover_for_new_movie");
+  });
+  await listen("add-cover-picked", (event) => {
+    pendingAddCoverPath = event.payload;
+    updateAddCoverChosenLabel();
+  });
 
   addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1272,9 +1318,15 @@ async function boot() {
 
   document.getElementById("add-preview-cancel").addEventListener("click", () => previewDialog.close());
   document.getElementById("add-preview-confirm").addEventListener("click", async () => {
-    await invoke("add_movie", { path: currentPath, fields: pendingAddFields });
+    // Same reasoning as BookNojo's own add confirmation: after an add
+    // there's nothing on screen yet to confirm it worked, unlike after
+    // an edit where the updated row is already visible — so this alerts
+    // the result message (including a cover-save failure, if any).
+    const result = await invoke("add_movie", { path: currentPath, fields: pendingAddFields, coverPath: pendingAddCoverPath });
+    pendingAddCoverPath = null;
     previewDialog.close();
     await loadCollection(currentPath);
+    window.alert(result);
   });
 }
 

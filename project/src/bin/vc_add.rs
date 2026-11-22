@@ -208,7 +208,7 @@ fn main() -> Result<()> {
     match Args::parse().command {
         Command::AddPlan { db, fields, out } => {
             let conn = open_readonly(&db)?;
-            let sql = build_plan(&conn, &fields)?;
+            let (sql, _pk) = build_plan(&conn, &fields)?;
             write_plan(&sql, out)?;
         }
         Command::EditPlan {

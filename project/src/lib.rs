@@ -940,7 +940,7 @@ pub fn preview_add_movie(conn: &Connection, fields: &MovieFields) -> Result<AddM
 /// `BEGIN;`/`COMMIT;` — resolved against `conn` (a read-only
 /// connection is fine, nothing here is executed) but never run by
 /// this function itself. `commit_plan` executes the result later.
-pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
+pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<(String, i64)> {
     let title = fields.title.clone().context("title is required to add a movie")?;
     let mut alloc = PkAllocator::new(conn);
     let mut create_sql = Vec::new();
@@ -1138,7 +1138,7 @@ pub fn build_plan(conn: &Connection, fields: &MovieFields) -> Result<String> {
     statements.extend(alloc.finish_sql());
     statements.push("COMMIT;".to_string());
 
-    Ok(statements.join("\n"))
+    Ok((statements.join("\n"), movie_pk))
 }
 
 /// Executes a plan produced by `build_plan` (or any `BEGIN;`/`COMMIT;`
@@ -2426,7 +2426,7 @@ mod tests {
         // below has something pre-existing to compare against.
         {
             let conn = open_readonly(&dest).unwrap();
-            let plan = build_plan(
+            let (plan, _pk) = build_plan(
                 &conn,
                 &MovieFields {
                     title: Some("Preview Setup Movie".to_string()),
@@ -2505,7 +2505,7 @@ mod tests {
 
         let plan = {
             let conn = open_readonly(&dest).unwrap();
-            build_plan(&conn, &fields).unwrap()
+            build_plan(&conn, &fields).unwrap().0
         };
         {
             let conn = open_writable(&dest).unwrap();
@@ -2554,7 +2554,7 @@ mod tests {
         };
         let id = {
             let conn = open_readonly(&dest).unwrap();
-            let plan = build_plan(&conn, &add_fields).unwrap();
+            let (plan, _pk) = build_plan(&conn, &add_fields).unwrap();
             drop(conn);
             let conn = open_writable(&dest).unwrap();
             commit_plan(&conn, &plan).unwrap();
@@ -2615,7 +2615,7 @@ mod tests {
         let shared_genre = "Delete Test Shared Genre".to_string();
         let (keep_id, delete_id) = {
             let conn = open_readonly(&dest).unwrap();
-            let plan_a = build_plan(
+            let (plan_a, _pk) = build_plan(
                 &conn,
                 &MovieFields {
                     title: Some("Delete Test Keep".to_string()),
@@ -2630,7 +2630,7 @@ mod tests {
             drop(conn);
 
             let conn = open_readonly(&dest).unwrap();
-            let plan_b = build_plan(
+            let (plan_b, _pk) = build_plan(
                 &conn,
                 &MovieFields {
                     title: Some("Delete Test Remove".to_string()),

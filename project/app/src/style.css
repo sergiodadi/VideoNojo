@@ -131,6 +131,22 @@ dialog menu button {
   min-height: 1.2em;
 }
 
+.add-cover-field { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+.add-cover-field .label { font-size: 0.85rem; font-weight: 600; color: #666; }
+.add-cover-field button {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  font-family: inherit;
+}
+.add-cover-field button:hover { border-color: #4ea1f3; color: #2e6fb0; }
+.add-cover-chosen { font-size: 0.85rem; color: #666; }
+
 #add-preview-list {
   padding-left: 1.2rem;
   font-size: 0.9rem;

@@ -7,12 +7,12 @@
 </head>
 <body>
   <header>
-    <h1>VideoNojo</h1>
+    <h1>🎬 VideoNojo</h1>
     <input id="search" type="search" data-i18n-placeholder="search_placeholder" placeholder="Search by title or cast…" autofocus />
     <span id="count"></span>
     <span id="file-badge"></span>
-    <button id="open-collection" data-i18n="nav_open">Open Collection…</button>
-    <button id="add-movie" data-i18n="nav_add">Add Movie…</button>
+    <button id="open-collection" data-i18n="nav_open">📂 Open Collection…</button>
+    <button id="add-movie" data-i18n="nav_add">➕ Add Movie…</button>
     <button id="stats-btn" data-i18n="nav_stats">📊 Statistics</button>
     <span id="lang-toggle">
       <button id="lang-en" type="button">EN</button>
@@ -77,6 +77,11 @@
   <dialog id="add-movie-dialog">
     <form id="add-movie-form" method="dialog">
       <h2 id="add-movie-dialog-title" data-i18n="form_title_add">Add Movie</h2>
+      <div class="add-cover-field" id="add-movie-cover-field">
+        <span class="label" data-i18n="add_cover_label">Cover (optional)</span>
+        <button type="button" id="addCoverPickBtn" data-i18n="add_cover_choose">Choose an image…</button>
+        <span id="addCoverChosen" class="add-cover-chosen"></span>
+      </div>
       <label><span data-i18n="form_label_title">Title</span> <input name="title" required /></label>
       <label><span data-i18n="form_label_year">Release year</span> <input name="release_year" /></label>
       <label><span data-i18n="form_label_rating">Rating (0–5)</span> <input name="rating" type="number" min="0" max="5" /></label>
