@@ -6,6 +6,12 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0b6] - 2026-11-22
+
+- "VideoNojo Help > About VideoNojo" (a plain name+version dialog
+  duplicating the real native About panel) replaced with a real,
+  bilingual "User Guide" help window.
+
 ## [v1.0.0b5] - 2026-11-22
 
 - The detail panel is now a dark card (matching BookNojo's and MusicNojo's
