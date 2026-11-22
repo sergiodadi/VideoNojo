@@ -482,7 +482,7 @@ dialog menu button {
   min-height: 100px;
   padding: 1rem;
   overflow-y: auto;
-  background: #fafafa;
+  background: #181818;
 }
 
 #detail-empty {
@@ -490,15 +490,29 @@ dialog menu button {
   font-style: italic;
 }
 
+#detail-content {
+  background: #181818;
+  color: #e6e6e6;
+  padding: 1rem;
+  border-radius: 6px;
+}
+
+#detail-content h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #4ea1f3;
+  margin: 0 0 0.75rem;
+}
+
 #detail-content .tag-link {
   cursor: pointer;
-  color: #1a1a1a;
-  border-bottom: 1px dashed #999;
+  color: #e6e6e6;
+  border-bottom: 1px dashed #777;
 }
 
 #detail-content .tag-link:hover {
-  color: #2e4bb0;
-  border-bottom-color: #2e4bb0;
+  color: #4ea1f3;
+  border-bottom-color: #4ea1f3;
 }
 
 #detail-content .detail-top {
@@ -523,7 +537,7 @@ dialog menu button {
 }
 
 #detail-content dt {
-  color: #666;
+  color: #999;
 }
 
 #detail-content dd {
@@ -534,7 +548,7 @@ dialog menu button {
   font-weight: 600;
   margin-top: 0.75rem;
   font-size: 0.85rem;
-  color: #444;
+  color: #999;
 }
 
 #detail-content ol {
@@ -550,7 +564,7 @@ dialog menu button {
 }
 
 .link-list a {
-  color: #2e4bb0;
+  color: #4ea1f3;
   cursor: pointer;
 }
 
@@ -562,7 +576,7 @@ dialog menu button {
   display: flex;
   gap: 0.5rem;
   margin-top: 1rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #333;
   padding-top: 1rem;
 }
 

@@ -1765,16 +1765,18 @@ header h1 { font-size: 1.1rem; margin: 0; flex-shrink: 0; }
 #pager button { padding: 0.25rem 0.6rem; cursor: pointer; }
 #pager button:disabled { cursor: default; opacity: 0.4; }
 #page-info { color: #666; }
-#detail { flex: 1 1 auto; min-height: 100px; padding: 1rem; overflow-y: auto; background: #fafafa; }
+#detail { flex: 1 1 auto; min-height: 100px; padding: 1rem; overflow-y: auto; background: #181818; }
 #detail-empty { color: #888; font-style: italic; }
+#detail-content { background: #181818; color: #e6e6e6; padding: 1rem; border-radius: 6px; }
+#detail-content h2 { font-size: 1.3rem; font-weight: 700; color: #4ea1f3; margin: 0 0 0.75rem; }
 #detail-content img { max-width: 160px; display: block; margin-bottom: 0.75rem; border-radius: 4px; }
 #detail-content dl { display: grid; grid-template-columns: 6rem 1fr; gap: 0.25rem 0.5rem; font-size: 0.9rem; }
-#detail-content dt { color: #666; }
+#detail-content dt { color: #999; }
 #detail-content dd { margin: 0; }
-#detail-content .disc-heading { font-weight: 600; margin-top: 0.75rem; font-size: 0.85rem; color: #444; }
+#detail-content .disc-heading { font-weight: 600; margin-top: 0.75rem; font-size: 0.85rem; color: #999; }
 #detail-content ol { padding-left: 1.2rem; font-size: 0.9rem; margin: 0.25rem 0 0; }
 .link-list { list-style: none; margin: 0; padding: 0; }
-.link-list a { color: #2e4bb0; }
+.link-list a { color: #4ea1f3; }
 .link-list a:hover { text-decoration: underline; }
 #stats-pane { display: none; flex: 1; overflow-y: auto; background: #fbfbfc; padding: 1.5rem; min-height: 0; }
 body.panel-stats #main { display: none; }
