@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
@@ -278,6 +278,25 @@ fn pick_and_set_cover(app: tauri::AppHandle, path: String, id: i64) {
         });
 }
 
+/// "VideoNojo Help > User Guide" — opens a real help window (a bundled,
+/// bilingual, self-contained `help.html`: no Tauri API calls from inside
+/// it, so no capability grant needed) instead of the plain name+version
+/// dialog this used to show, which only duplicated the real native About
+/// panel. Reuses the existing window if already open instead of opening
+/// a second one. Same fix as BookNojo's/MusicNojo's own
+/// `show_help_window`.
+fn show_help_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("help") {
+        let _ = win.set_focus();
+        return;
+    }
+    let _ = tauri::WebviewWindowBuilder::new(app, "help", tauri::WebviewUrl::App("help.html".into()))
+        .title("VideoNojo Help")
+        .inner_size(680.0, 820.0)
+        .resizable(true)
+        .build();
+}
+
 fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, "VideoNojo")
@@ -324,9 +343,14 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::
 
     // A submenu titled exactly "Help" is silently swallowed on macOS by
     // this Tauri version — "VideoNojo Help" sidesteps it, same
-    // finding/workaround as BookNojo/MusicNojo's own menu.
+    // finding/workaround as BookNojo/MusicNojo's own menu. "User Guide"
+    // used to be "About VideoNojo", a bare name+version dialog
+    // duplicating the real native About panel (the app_menu's own
+    // `.about(...)`) — found by Serge comparing the two, same fix as
+    // the other 2 apps. Now opens a real help window instead (see
+    // show_help_window).
     let help_menu = SubmenuBuilder::new(app, "VideoNojo Help")
-        .text("about_videonojo", "About VideoNojo")
+        .text("show_help", "User Guide")
         .build()?;
 
     let mut builder = MenuBuilder::new(app);
@@ -364,12 +388,7 @@ pub fn run() {
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open_collection" => pick_collection(app.clone()),
-            "about_videonojo" => {
-                app.dialog()
-                    .message(format!("VideoNojo\nVersion {}", DISPLAY_VERSION))
-                    .title("About VideoNojo")
-                    .show(|_| {});
-            }
+            "show_help" => show_help_window(app),
             _ => {}
         })
         .run(tauri::generate_context!())

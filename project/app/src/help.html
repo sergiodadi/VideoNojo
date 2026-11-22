@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<title>VideoNojo — Help</title>
+<style>
+  :root {
+    --accent: #FB7B3C;
+    --accent-dark: #C42A2A;
+    --bg: #ffffff;
+    --text: #1d1f27;
+    --muted: #5b5f6b;
+    --card-bg: #fdf6f2;
+    --card-border: #f6e2d3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header.hero {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+    color: #fff;
+    padding: 26px 32px 22px;
+    position: relative;
+  }
+  header.hero h1 { margin: 0 0 4px; font-size: 21px; font-weight: 700; }
+  header.hero p.tagline { margin: 0; font-size: 12.5px; opacity: .92; }
+  #lang-toggle {
+    position: absolute; top: 18px; right: 22px;
+    display: flex; gap: 2px;
+    background: rgba(255,255,255,.2);
+    border-radius: 999px;
+    padding: 3px;
+  }
+  #lang-toggle button {
+    border: none; background: transparent; color: #fff;
+    font-size: 11px; font-weight: 700; padding: 4px 11px;
+    border-radius: 999px; cursor: pointer; opacity: .75;
+    font-family: inherit;
+  }
+  #lang-toggle button.active { background: #fff; color: var(--accent-dark); opacity: 1; }
+  main { max-width: 620px; margin: 0 auto; padding: 22px 30px 12px; }
+  section.card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  section.card h2 {
+    margin: 0 0 9px;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--accent-dark);
+  }
+  section.card p { margin: 0 0 9px; font-size: 12.8px; line-height: 1.55; color: var(--text); }
+  section.card p:last-child { margin-bottom: 0; }
+  section.card ul { margin: 0; padding-left: 19px; }
+  section.card li { font-size: 12.8px; line-height: 1.6; margin-bottom: 7px; }
+  section.card li:last-child { margin-bottom: 0; }
+  section.card li b { color: var(--accent-dark); }
+  .note {
+    background: #fff8e8; border: 1px solid #f0dca0; color: #6b5420;
+    border-radius: 8px; padding: 9px 13px; font-size: 12px; margin-top: 10px;
+  }
+  .note.safe { background: #fdece2; border-color: #f0c3a4; color: #7a3514; }
+  code {
+    background: #f8e9df; color: var(--accent-dark);
+    padding: 1px 5px; border-radius: 4px; font-size: 12px;
+  }
+  footer { text-align: center; font-size: 11px; color: var(--muted); padding: 4px 32px 24px; }
+  [data-lang-content] { display: none; }
+  html[data-lang="fr"] [data-lang-content="fr"] { display: block; }
+  html[data-lang="en"] [data-lang-content="en"] { display: block; }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div id="lang-toggle">
+      <button data-lang-btn="fr">FR</button>
+      <button data-lang-btn="en">EN</button>
+    </div>
+    <h1>🎬 VideoNojo</h1>
+    <p class="tagline" data-lang-content="fr">Guide d'utilisation</p>
+    <p class="tagline" data-lang-content="en">User guide</p>
+  </header>
+  <main>
+
+    <div data-lang-content="fr">
+      <section class="card">
+        <h2>📂 Ouvrir une collection</h2>
+        <p><b>« Open Collection… »</b> (dans l'en-tête, ou Fichier → Open
+        Collection… dans la barre de menus) ouvre le sélecteur natif
+        macOS — il n'accepte que les fichiers <code>.mvcp</code>.</p>
+        <ul>
+          <li>Une collection <code>.mvcp</code> d'une version de Movie
+          Collector différente de celle visée (20.2.2.1) est refusée
+          avec un message clair, plutôt qu'un plantage.</li>
+          <li>Au tout premier lancement, VideoNojo affiche une collection
+          d'exemple intégrée, entièrement fictive (8 films inventés) —
+          il y a toujours quelque chose à voir, sans jamais exposer de
+          vraies données par défaut.</li>
+          <li>Chaque lancement suivant rouvre la même collection,
+          exactement là où on l'avait laissée — onglet, regroupement,
+          recherche et film sélectionné.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🎬 Parcourir la bibliothèque</h2>
+        <p><b>Trois zones</b> redimensionnables à la souris : le
+        regroupement à gauche, la liste des films en haut à droite, la
+        fiche détail en bas à droite.</p>
+        <ul>
+          <li><b>Regroupement</b> par Genre (par défaut), Studio, Format
+          ou Pays, avec une barre A-Z. La liste des groupes est triée
+          par ordre alphabétique par défaut — cliquer sur le nombre à
+          côté de « Tous » la trie par nombre de films.</li>
+          <li><b>Recherche</b> par titre ou nom d'acteur, <b>tri</b> par
+          titre/année/note/pays/date d'ajout, <b>vue liste ou
+          grille</b> (jaquettes), pagination à 60 films par page.</li>
+          <li><b>Sous-collections</b> multiples dans un même fichier —
+          des onglets permettent de basculer entre elles.</li>
+          <li><b>Fiche détail</b> : jaquette, titre original, année,
+          pays, série, coffret, genres, studios, formats, régions,
+          formats d'écran, sous-titres, pistes audio, HDR, bonus,
+          étiquettes, distribution, équipe technique, note, notes,
+          synopsis, date d'ajout, et les liens (cliquables, ouverts dans
+          le navigateur système) — plus, pour une série TV, ses disques
+          et épisodes. Genre, studio, format et pays sont cliquables :
+          ça saute directement au groupe correspondant.</li>
+          <li><b>Panneau statistiques</b> : nombre total de films,
+          combien n'ont pas de jaquette ou pas d'acteur, et des
+          graphiques par genre/studio/format/pays/décennie/année
+          d'ajout.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>✏️ Ajouter, modifier, supprimer un film</h2>
+        <ul>
+          <li><b>Ajouter</b> : un formulaire couvrant tous les champs
+          (acteurs et équipe séparés par des virgules ; une entrée
+          d'équipe peut être <code>"Nom"</code> ou
+          <code>"Nom:Rôle"</code>). Avant toute écriture, un aperçu
+          liste chaque valeur saisie avec un badge « nouveau » sur
+          celles qui n'existent pas encore — pour repérer une faute de
+          frappe avant qu'elle devienne une entrée dupliquée
+          permanente.</li>
+          <li>Le nouveau film rejoint l'onglet de sous-collection actif,
+          et reçoit la date/heure actuelles comme date d'ajout.</li>
+          <li><b>Modifier</b> : depuis la fiche détail, même formulaire
+          pré-rempli, écriture immédiate (pas d'aperçu).</li>
+          <li><b>Supprimer</b> : depuis la fiche détail, après
+          confirmation.</li>
+          <li><b>Définir une jaquette</b> : depuis le panneau
+          statistiques, dérouler « N sans jaquette » puis cliquer sur un
+          film ouvre un sélecteur de fichier. Pas encore possible de
+          changer la jaquette d'un film qui en a déjà une, ni de définir
+          la jaquette arrière, depuis l'application.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🌐 Interface bilingue</h2>
+        <p>La bascule <b>EN / FR</b> dans l'en-tête change toute
+        l'interface — regroupement, liste, fiche détail, formulaires. Le
+        choix est mémorisé d'une session à l'autre.</p>
+      </section>
+
+      <section class="card">
+        <h2>🛡️ Sécurité des données</h2>
+        <p>Chaque écriture (ajout, modification, suppression) est
+        précédée d'une sauvegarde horodatée du fichier.</p>
+        <div class="note safe">VideoNojo peut ouvrir la vraie collection
+        Movie Collector en <b>lecture seule</b>, mais aucune écriture
+        n'a d'exception pour elle. Toute écriture est aussi refusée si
+        <b>Movie Collector lui-même est lancé</b> — fermez-le
+        d'abord.</div>
+      </section>
+
+      <section class="card">
+        <h2>🚧 Pas encore disponible</h2>
+        <ul>
+          <li>Changer la jaquette d'un film qui en a déjà une, la
+          remplacer, ou définir la jaquette arrière.</li>
+          <li>Changer la sous-collection d'un film depuis
+          l'application.</li>
+          <li>Liens, disques et épisodes — lecture seule, aucun moyen
+          pour l'instant d'en ajouter/modifier/supprimer.</li>
+          <li>Parcourir *par* série ou coffret (pas de regroupement
+          dédié, contrairement à genre/studio/format).</li>
+          <li>Recherche en ligne pour pré-remplir une fiche.</li>
+          <li>Application pas encore signée/notariée par un compte
+          développeur Apple — sans conséquence pour un usage
+          personnel.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🔧 Pour aller plus loin</h2>
+        <p>Pour un usage courant, l'application seule suffit. Pour les
+        outils en ligne de commande (<code>vc_export</code>/
+        <code>vc_add</code> — export CSV/JSON/HTML, scripts), voir
+        <code>CLI.fr.md</code> dans le dépôt. <code>CHANGELOG.fr.md</code>
+        garde l'historique des versions publiées.</p>
+      </section>
+    </div>
+
+    <div data-lang-content="en">
+      <section class="card">
+        <h2>📂 Opening a collection</h2>
+        <p><b>"Open Collection…"</b> (in the header, or File → Open
+        Collection… in the menu bar) opens the native macOS file picker
+        — it only accepts <code>.mvcp</code> files.</p>
+        <ul>
+          <li>A <code>.mvcp</code> collection from a Movie Collector
+          version other than the one targeted (20.2.2.1) is rejected
+          with a clear message, rather than a crash.</li>
+          <li>On the very first launch, VideoNojo shows an entirely
+          fictional bundled sample collection (8 invented movies) —
+          there's always something to see, without ever exposing real
+          data by default.</li>
+          <li>Every later launch reopens the same collection, exactly
+          where it was left — active tab, grouping, search, and selected
+          movie are all remembered.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🎬 Browsing the library</h2>
+        <p><b>Three zones</b>, resizable with the mouse: grouping on the
+        left, the movie list at top right, the detail card at bottom
+        right.</p>
+        <ul>
+          <li><b>Grouping</b> by Genre (default), Studio, Format or
+          Country, with an A-Z bar. The group list is sorted
+          alphabetically by default — click the count next to "All" to
+          sort by movie count instead.</li>
+          <li><b>Search</b> by title or cast member, <b>sort</b> by
+          title/year/rating/country/date added, <b>list or grid
+          view</b> (cover thumbnails), pagination at 60 movies per
+          page.</li>
+          <li>Multiple <b>sub-collections</b> in a single file — tabs
+          switch between them.</li>
+          <li><b>Detail card</b>: cover, original title, year, country,
+          series, box set, genres, studios, formats, regions, screen
+          ratios, subtitles, audio tracks, HDR, extras, tags, cast,
+          crew, rating, notes, plot, date added, and links (clickable,
+          open in the system browser) — plus, for a TV series, its discs
+          and episodes. Genre, studio, format and country are clickable:
+          jumps straight to the matching group.</li>
+          <li><b>Statistics panel</b>: total movie count, how many have
+          no cover or no cast, and charts by genre/studio/format/
+          country/decade/year added.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>✏️ Adding, editing, deleting a movie</h2>
+        <ul>
+          <li><b>Add</b>: a form covering every field (cast and crew
+          comma-separated; a crew entry can be <code>"Name"</code> or
+          <code>"Name:Role"</code>). Before anything is written, a
+          preview lists every value typed, with a "new" badge on the
+          ones that don't already exist — catching a typo before it
+          becomes a permanent duplicate entry.</li>
+          <li>The new movie joins the active sub-collection tab, and is
+          stamped with the current date/time as its date added.</li>
+          <li><b>Edit</b>: from the detail card, same pre-filled form,
+          writes immediately (no preview).</li>
+          <li><b>Delete</b>: from the detail card, after
+          confirmation.</li>
+          <li><b>Setting a cover</b>: from the statistics panel,
+          expanding "N with no cover" and clicking a movie opens a file
+          picker. Not yet possible to change a cover that already
+          exists, or set the back cover, from the application.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🌐 Bilingual interface</h2>
+        <p>The <b>EN / FR</b> toggle in the header switches the whole
+        interface — grouping, list, detail card, forms. The choice is
+        remembered from one session to the next.</p>
+      </section>
+
+      <section class="card">
+        <h2>🛡️ Data safety</h2>
+        <p>Every write (add, edit, delete) is preceded by a timestamped
+        backup of the file.</p>
+        <div class="note safe">VideoNojo can open the real Movie
+        Collector collection in <b>read-only</b> mode, but no write has
+        any exception for it. Every write is also refused if <b>Movie
+        Collector itself is running</b> — close it first.</div>
+      </section>
+
+      <section class="card">
+        <h2>🚧 Not available yet</h2>
+        <ul>
+          <li>Changing a cover that already exists, replacing one, or
+          setting the back cover.</li>
+          <li>Changing a movie's sub-collection from the
+          application.</li>
+          <li>Links, discs and episodes — read-only, no way yet to add/
+          edit/remove one.</li>
+          <li>Browsing *by* series or box set (no dedicated grouping,
+          unlike genre/studio/format).</li>
+          <li>Online lookup to pre-fill a record.</li>
+          <li>Not yet code-signed/notarized with an Apple developer
+          account — no consequence for personal use.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>🔧 Going further</h2>
+        <p>For everyday use, the application alone is enough. For the
+        command-line tools (<code>vc_export</code>/<code>vc_add</code>
+        — CSV/JSON/HTML export, scripts), see <code>CLI.md</code> in the
+        repository. <code>CHANGELOG.md</code> keeps the history of
+        published versions.</p>
+      </section>
+    </div>
+
+  </main>
+  <footer>
+    <span data-lang-content="fr">VideoNojo</span>
+    <span data-lang-content="en">VideoNojo</span>
+  </footer>
+<script>
+  (function () {
+    var KEY = "videonojo_lang";
+    var html = document.documentElement;
+    function apply(lang) {
+      html.setAttribute("data-lang", lang);
+      document.querySelectorAll("#lang-toggle button").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.langBtn === lang);
+      });
+    }
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    apply(saved === "fr" ? "fr" : "en");
+    document.querySelectorAll("#lang-toggle button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var lang = b.dataset.langBtn;
+        apply(lang);
+        try { localStorage.setItem(KEY, lang); } catch (e) {}
+      });
+    });
+  })();
+</script>
+</body>
+</html>
