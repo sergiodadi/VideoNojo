@@ -103,6 +103,18 @@ your original Movie Collector database — two separate actions:
   add is confirmed. If the add succeeds but the cover can't be saved,
   the movie is still added — fix the cover afterward from the "no
   cover" list in the Statistics panel, or with `vc_add set-cover`.
+- **Online search**: the Add-movie form opens on a toggle — "✍️
+  Manually" / "🔍 Online search". The online panel searches 2 free
+  sources at once: Wikidata (films) and TVmaze (TV shows) — results
+  are never merged across sources, pick whichever looks most reliable.
+  Picking a result switches back to the manual form, pre-filled (title,
+  release year, genres, and the director into the crew field for a
+  Wikidata result) — nothing is written until the manual form itself is
+  submitted. A Wikidata result never comes with a cover image (film
+  posters are copyrighted, so practically never on Wikimedia Commons);
+  a TVmaze result usually does, downloaded automatically into the
+  cover field. Online search is only available when adding a movie,
+  not when editing one.
 - **Setting a cover image**: from the statistics panel, expanding "N
   with no cover" and clicking a movie in that list opens the native
   macOS file picker to choose a front cover image — it's copied into
@@ -160,8 +172,8 @@ your original Movie Collector database — two separate actions:
   (Region, screen ratio, subtitle, audio track, HDR, extra, and tag —
   the many-to-many structures — are fully modeled, read and write,
   since v0.25.0.)
-- Online lookup to pre-fill a record from a barcode or a database
-  match — not started.
+- Online lookup by barcode/UPC — section 3 above covers the title-based
+  online search that *is* available.
 - Not yet code-signed/notarized with an Apple developer account — no
   consequence for personal use, but needed before distributing the
   application to anyone else.

@@ -6,6 +6,8 @@ use rusqlite::OptionalExtension;
 pub use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
+pub mod online_search;
+
 // Core Data entity id for Movie, the only entity actually stored in
 // ZCOLLECTIBLE in practice (confirmed directly: every row in a real
 // collection is Z_ENT=7, Z_SUPER=6 under the abstract "Collectible"

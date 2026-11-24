@@ -82,6 +82,14 @@ let selectedGroup = null;
 let selectedLetter = null;
 let groupSortByCount = false;
 let editingMovieId = null;
+// "Recherche en ligne" state (add-only, same restriction as BookNojo:
+// reset to 'manual' every time the add dialog opens, and the toggle
+// itself is hidden entirely while editing — see openEditForm()).
+let addMode = "manual";
+let onlineSearchQuery = "";
+let onlineSearchResults = [];
+let onlineSearchBusy = false;
+let onlineSearchDone = false;
 let currentCollection = null;
 let sortKey = "title";
 let sortAsc = true;
@@ -212,6 +220,15 @@ const I18N = {
     add_cover_choose: "Choose an image…",
     add_cover_chosen: "Chosen: {name}",
     add_cover_remove: "Remove",
+    add_mode_manual: "✍️ Manually",
+    add_mode_online: "🔍 Online search",
+    search_online_hint:
+      "Search by title — 2 free sources: Wikidata (films) and TVmaze (TV shows). Results are never merged across sources; pick whichever looks most reliable. Wikidata never has a poster image (film posters are copyrighted); TVmaze usually does.",
+    search_online_placeholder: "Title…",
+    search_online_button: "Search",
+    search_online_searching: "Searching…",
+    search_online_no_results: "No results.",
+    search_online_choose: "Choose",
     form_title_add: "Add Movie",
     form_title_edit: "Edit: {title}",
     form_label_title: "Title",
@@ -317,6 +334,15 @@ const I18N = {
     add_cover_choose: "Choisir une image…",
     add_cover_chosen: "Choisi : {name}",
     add_cover_remove: "Retirer",
+    add_mode_manual: "✍️ Manuellement",
+    add_mode_online: "🔍 Recherche en ligne",
+    search_online_hint:
+      "Cherchez par titre — 2 sources gratuites : Wikidata (films) et TVmaze (séries TV). Les résultats ne sont jamais fusionnés entre eux ; choisissez celui qui semble le plus fiable. Wikidata n'a jamais de jaquette (les affiches de films sont protégées par le droit d'auteur) ; TVmaze en a généralement une.",
+    search_online_placeholder: "Titre…",
+    search_online_button: "Rechercher",
+    search_online_searching: "Recherche…",
+    search_online_no_results: "Aucun résultat.",
+    search_online_choose: "Choisir",
     form_title_add: "Ajouter un film",
     form_title_edit: "Modifier : {title}",
     form_label_title: "Titre",
@@ -945,6 +971,133 @@ function updateAddCoverChosenLabel() {
   });
 }
 
+// "✍️ Manually" / "🔍 Online search" toggle inside the add-movie dialog.
+// Unlike BookNojo's add pane (a single container re-rendered from a JS
+// template string), this dialog's manual fields are static markup
+// (index.html) wrapped in #add-movie-manual-fields — so switching modes
+// just shows/hides that wrapper and #add-movie-online-panel, rather than
+// re-rendering anything. The submit button only makes sense in manual
+// mode (nothing to submit while searching), so it's hidden too; Cancel
+// stays visible either way.
+function setAddMode(mode) {
+  addMode = mode;
+  document.querySelectorAll(".add-mode-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  document.getElementById("add-movie-manual-fields").style.display = mode === "manual" ? "" : "none";
+  document.getElementById("add-movie-online-panel").style.display = mode === "online" ? "" : "none";
+  document.getElementById("add-movie-submit").style.display = mode === "manual" ? "" : "none";
+  if (mode === "online") {
+    document.getElementById("onlineSearchInput").focus();
+  }
+}
+
+// Bound once in boot() (the toggle buttons are static markup, not
+// re-rendered), not per dialog-open.
+function wireAddModeToggle() {
+  document.querySelectorAll(".add-mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setAddMode(btn.dataset.mode));
+  });
+  document.getElementById("onlineSearchBtn").addEventListener("click", runOnlineSearch);
+  document.getElementById("onlineSearchInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      runOnlineSearch();
+    }
+  });
+}
+
+async function runOnlineSearch() {
+  const input = document.getElementById("onlineSearchInput");
+  const query = input.value.trim();
+  if (!query || onlineSearchBusy) return;
+  onlineSearchQuery = query;
+  onlineSearchBusy = true;
+  onlineSearchDone = false;
+  renderOnlineSearchResults();
+  try {
+    onlineSearchResults = await invoke("search_movie_online", { query });
+  } catch {
+    // search_movie_online already turns a single source's own failure
+    // into "zero results for that source" — an invoke() rejection here
+    // means something broke before any source even ran, so there's
+    // nothing source-specific to show either way.
+    onlineSearchResults = [];
+  }
+  onlineSearchBusy = false;
+  onlineSearchDone = true;
+  renderOnlineSearchResults();
+}
+
+function renderOnlineSearchResults() {
+  const btn = document.getElementById("onlineSearchBtn");
+  btn.disabled = onlineSearchBusy;
+  btn.textContent = onlineSearchBusy ? t("search_online_searching") : t("search_online_button");
+  const container = document.getElementById("onlineSearchResults");
+  if (onlineSearchBusy) {
+    container.innerHTML = "";
+    return;
+  }
+  if (onlineSearchDone && onlineSearchResults.length === 0) {
+    container.innerHTML = `<p class="add-hint">${t("search_online_no_results")}</p>`;
+    return;
+  }
+  container.innerHTML = onlineSearchResults.map(renderOnlineResultCardHtml).join("");
+  container.querySelectorAll(".online-result-choose").forEach((choiceBtn) => {
+    choiceBtn.addEventListener("click", () => {
+      // Disabled immediately, not re-enabled: applyOnlineResultToForm()
+      // switches back to the manual form once it's done, so there's
+      // nothing left here to re-enable — this just blocks a second click
+      // during the cover download in between.
+      choiceBtn.disabled = true;
+      applyOnlineResultToForm(onlineSearchResults[parseInt(choiceBtn.dataset.index, 10)]);
+    });
+  });
+}
+
+function renderOnlineResultCardHtml(r, i) {
+  const meta = [r.director, r.release_year, (r.genres || []).join(", ")].filter(Boolean).join(" · ");
+  const cover = r.cover_url
+    ? `<img class="online-result-cover" src="${escapeHtml(r.cover_url)}" alt="" loading="lazy">`
+    : '<div class="online-result-cover online-result-cover-empty"></div>';
+  return `
+      <div class="online-result">
+        ${cover}
+        <div class="online-result-info">
+          <span class="online-result-source">${escapeHtml(r.source)}</span>
+          <strong>${escapeHtml(r.title)}</strong>
+          ${meta ? `<span>${escapeHtml(meta)}</span>` : ""}
+        </div>
+        <button type="button" class="online-result-choose" data-index="${i}">${t("search_online_choose")}</button>
+      </div>`;
+}
+
+// Applies one chosen online-search result to the static manual form:
+// nothing here writes to the database — the user still reviews and
+// submits the manual form normally afterwards (same spirit as
+// BookNojo's own applyOnlineResultToForm). Cover download (when the
+// result has one — only ever a TVmaze result, see online_search.rs'
+// own doc comment) happens *before* switching back to manual mode, so
+// pendingAddCoverPath/its "chosen" label are already set once that view
+// is shown again.
+async function applyOnlineResultToForm(r) {
+  if (!r) return;
+  const addForm = document.getElementById("add-movie-form");
+  if (r.title) addForm.elements.title.value = r.title;
+  if (r.release_year) addForm.elements.release_year.value = r.release_year;
+  if (r.genres && r.genres.length) addForm.elements.genres.value = r.genres.join(", ");
+  if (r.director) addForm.elements.crew.value = r.director;
+  if (r.cover_url) {
+    try {
+      pendingAddCoverPath = await invoke("download_online_cover", { url: r.cover_url });
+    } catch {
+      pendingAddCoverPath = null;
+    }
+    updateAddCoverChosenLabel();
+  }
+  setAddMode("manual");
+}
+
 function showAddPreview(preview) {
   document.getElementById("add-preview-title").textContent = preview.title;
   document.getElementById("add-preview-summary").textContent =
@@ -969,6 +1122,10 @@ function openEditForm(m) {
   pendingAddCoverPath = null;
   document.getElementById("add-movie-cover-field").style.display = "none";
   updateAddCoverChosenLabel();
+  // Online search is add-only (nothing to look up once a movie already
+  // exists) — hide the toggle entirely and force manual mode.
+  document.getElementById("add-mode-toggle").style.display = "none";
+  setAddMode("manual");
   addForm.elements.title.value = m.title || "";
   addForm.elements.release_year.value = m.release_year || "";
   addForm.elements.rating.value = m.rating ?? "";
@@ -1283,9 +1440,17 @@ async function boot() {
     pendingAddCoverPath = null;
     document.getElementById("add-movie-cover-field").style.display = "";
     updateAddCoverChosenLabel();
+    document.getElementById("add-mode-toggle").style.display = "";
+    onlineSearchQuery = "";
+    onlineSearchResults = [];
+    onlineSearchDone = false;
+    document.getElementById("onlineSearchInput").value = "";
+    renderOnlineSearchResults();
+    setAddMode("manual");
     addDialog.showModal();
   });
   document.getElementById("add-movie-cancel").addEventListener("click", () => addDialog.close());
+  wireAddModeToggle();
   document.getElementById("addCoverPickBtn").addEventListener("click", () => {
     invoke("pick_cover_for_new_movie");
   });

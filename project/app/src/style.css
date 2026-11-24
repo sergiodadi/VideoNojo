@@ -147,6 +147,65 @@ dialog menu button {
 .add-cover-field button:hover { border-color: #4ea1f3; color: #2e6fb0; }
 .add-cover-chosen { font-size: 0.85rem; color: #666; }
 
+.add-mode-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+.add-mode-btn {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+}
+.add-mode-btn.active { border-color: #4ea1f3; color: #2e6fb0; font-weight: 600; }
+
+.add-hint { font-size: 0.8rem; color: #666; margin: 0 0 0.6rem 0; }
+
+.online-search-box { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; }
+.online-search-box input {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+.online-search-box button {
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.online-search-results { display: flex; flex-direction: column; gap: 0.5rem; max-height: 50vh; overflow-y: auto; }
+.online-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+.online-result-cover { width: 44px; height: 66px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+.online-result-cover-empty { width: 44px; height: 66px; background: #eee; border-radius: 3px; flex-shrink: 0; }
+.online-result-info { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.online-result-info strong { font-size: 0.9rem; }
+.online-result-info span { font-size: 0.78rem; color: #777; }
+.online-result-source {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #4ea1f3;
+  font-weight: 600;
+}
+.online-result-choose {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
 #add-preview-list {
   padding-left: 1.2rem;
   font-size: 0.9rem;

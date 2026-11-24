@@ -378,6 +378,42 @@ fn pick_cover_for_new_movie(app: tauri::AppHandle) {
         });
 }
 
+/// "Recherche en ligne" — queries Wikidata (films) and TVmaze (TV shows)
+/// **in parallel**, one thread per source, same reasoning as BookNojo's
+/// own `search_book_online`: `reqwest::blocking` is deliberately
+/// synchronous, so the parallelism comes from here, not async/tokio. A
+/// failure or even a panic in one source never blocks the other — its
+/// results are simply absent. No flag to pick which source runs: both
+/// always run and each result already carries its own `source` label
+/// (the frontend doesn't merge them), so a search for a TV show title
+/// surfaces TVmaze results even though VideoNojo's add-movie form has no
+/// dedicated "this is a TV show" field to branch on.
+#[tauri::command]
+fn search_movie_online(query: String) -> Vec<video_collector_export::online_search::MovieSearchResult> {
+    let wikidata = std::thread::spawn({
+        let query = query.clone();
+        move || video_collector_export::online_search::search_wikidata_film(&query)
+    });
+    let tvmaze = std::thread::spawn(move || video_collector_export::online_search::search_tvmaze_show(&query));
+
+    let mut results = Vec::new();
+    for handle in [wikidata, tvmaze] {
+        if let Ok(Ok(mut source_results)) = handle.join() {
+            results.append(&mut source_results);
+        }
+    }
+    results
+}
+
+/// Thin wrapper around `online_search::download_cover_to_temp_file` —
+/// lives here only to expose it as a Tauri command; the actual
+/// download+write logic stays in the shared crate, where `reqwest` is
+/// already a dependency.
+#[tauri::command]
+fn download_online_cover(url: String) -> Result<String, String> {
+    video_collector_export::online_search::download_cover_to_temp_file(&url)
+}
+
 /// "VideoNojo Help > User Guide" — opens a real help window (a bundled,
 /// bilingual, self-contained `help.html`: no Tauri API calls from inside
 /// it, so no capability grant needed) instead of the plain name+version
@@ -480,7 +516,9 @@ pub fn run() {
             edit_movie,
             delete_movie,
             pick_and_set_cover,
-            pick_cover_for_new_movie
+            pick_cover_for_new_movie,
+            search_movie_online,
+            download_online_cover
         ])
         .setup(|app| {
             let menu = build_menu(app.handle())?;

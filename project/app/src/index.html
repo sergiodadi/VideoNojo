@@ -77,6 +77,19 @@
   <dialog id="add-movie-dialog">
     <form id="add-movie-form" method="dialog">
       <h2 id="add-movie-dialog-title" data-i18n="form_title_add">Add Movie</h2>
+      <div class="add-mode-toggle" id="add-mode-toggle">
+        <button type="button" class="add-mode-btn" data-mode="manual" data-i18n="add_mode_manual">✍️ Manually</button>
+        <button type="button" class="add-mode-btn" data-mode="online" data-i18n="add_mode_online">🔍 Online search</button>
+      </div>
+      <div id="add-movie-online-panel" class="online-search-panel" style="display: none">
+        <p class="add-hint" data-i18n="search_online_hint">Search by title — 2 free sources: Wikidata (films) and TVmaze (TV shows). Results are never merged across sources; pick whichever looks most reliable. Wikidata never has a poster image (film posters are copyrighted); TVmaze usually does.</p>
+        <div class="online-search-box">
+          <input id="onlineSearchInput" data-i18n-placeholder="search_online_placeholder" placeholder="Title…" />
+          <button type="button" id="onlineSearchBtn" data-i18n="search_online_button">Search</button>
+        </div>
+        <div id="onlineSearchResults" class="online-search-results"></div>
+      </div>
+      <div id="add-movie-manual-fields">
       <div class="add-cover-field" id="add-movie-cover-field">
         <span class="label" data-i18n="add_cover_label">Cover (optional)</span>
         <button type="button" id="addCoverPickBtn" data-i18n="add_cover_choose">Choose an image…</button>
@@ -117,6 +130,7 @@
       <datalist id="dl-crew"></datalist>
       <label><span data-i18n="form_label_plot">Plot</span> <textarea name="plot" rows="2"></textarea></label>
       <label><span data-i18n="form_label_notes">Notes</span> <textarea name="notes" rows="2"></textarea></label>
+      </div>
       <div id="add-movie-error" class="error"></div>
       <menu>
         <button type="button" id="add-movie-cancel" data-i18n="form_cancel">Cancel</button>

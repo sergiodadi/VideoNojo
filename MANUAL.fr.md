@@ -115,6 +115,20 @@ jamais votre base Movie Collector d'origine — deux actions distinctes :
   est quand même ajouté — il suffit de corriger la jaquette ensuite
   depuis la liste « sans jaquette » du panneau Statistiques, ou avec
   `vc_add set-cover`.
+- **Recherche en ligne** : le formulaire d'ajout s'ouvre sur une
+  bascule « ✍️ Manuellement » / « 🔍 Recherche en ligne ». Le panneau en
+  ligne interroge 2 sources gratuites à la fois : Wikidata (films) et
+  TVmaze (séries TV) — les résultats ne sont jamais fusionnés entre
+  eux, choisissez celui qui semble le plus fiable. Choisir un résultat
+  revient au formulaire manuel, pré-rempli (titre, année de sortie,
+  genres, et le réalisateur dans le champ équipe technique pour un
+  résultat Wikidata) — rien n'est écrit avant que le formulaire manuel
+  lui-même ne soit soumis. Un résultat Wikidata n'a jamais de jaquette
+  (les affiches de films sont protégées par le droit d'auteur, donc
+  quasiment jamais sur Wikimedia Commons) ; un résultat TVmaze en a
+  généralement une, téléchargée automatiquement dans le champ jaquette.
+  La recherche en ligne n'est disponible qu'à l'ajout, pas à la
+  modification.
 - **Définir une jaquette** : depuis le panneau statistiques, dérouler
   « N sans jaquette » puis cliquer sur un film de cette liste ouvre le
   sélecteur de fichier natif macOS pour choisir une image de jaquette
@@ -178,9 +192,8 @@ jamais votre base Movie Collector d'origine — deux actions distinctes :
   d'écran, sous-titres, piste audio, HDR, bonus et étiquette — les
   structures many-to-many — sont pleinement modélisées, en lecture et
   en écriture, depuis la v0.25.0.)
-- Recherche en ligne pour pré-remplir une fiche à partir d'un
-  code-barres ou d'une correspondance avec une base de données — pas
-  commencé.
+- Recherche en ligne par code-barres/UPC — la section 3 ci-dessus
+  couvre la recherche en ligne par titre, qui elle *est* disponible.
 - Pas encore signée/notarisée avec un compte développeur Apple — sans
   conséquence pour un usage personnel, mais nécessaire avant de
   distribuer l'application à qui que ce soit d'autre.
