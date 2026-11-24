@@ -7,16 +7,28 @@ Ce document explique comment utiliser l'application macOS
 [`README.fr.md`](README.fr.md) ; pour la compiler depuis les sources,
 voir [`BUILD.fr.md`](BUILD.fr.md).
 
-## 1. Ouvrir une collection
+## 1. Importer puis ouvrir une collection
 
-- **"Open Collection…"** (dans l'en-tête, ou Fichier → Open
-  Collection… dans la barre de menus) ouvre le sélecteur de fichier
-  natif macOS pour choisir une collection `.mvcp`. Le sélecteur
-  n'accepte que les fichiers `.mvcp`.
-- Une collection `.mvcp` créée avec une version de Movie Collector
-  différente de celle visée par VideoNojo (20.2.2.1) est refusée à ce
-  moment-là, avec un message clair plutôt qu'un plantage ou une
-  corruption silencieuse.
+VideoNojo garde sa propre copie indépendante de votre collection,
+jamais votre base Movie Collector d'origine — deux actions distinctes :
+
+- **« File > Import Collection… »** — uniquement dans la barre de menu
+  macOS (une action rare, à faire une seule fois, pas dans l'en-tête
+  de l'app). Choisissez une vraie collection Movie Collector `.mvcp` ;
+  VideoNojo la copie une seule fois dans une nouvelle base `.vnj`
+  indépendante, à un emplacement fixe
+  (`~/Documents/VideoNojo/<nom>.vnj`), puis l'ouvre automatiquement.
+  Le `.mvcp` d'origine n'est jamais modifié, seulement lu. Une
+  collection `.mvcp` créée avec une version de Movie Collector
+  différente de celle visée (20.2.2.1) est refusée, avec un message
+  clair plutôt qu'un plantage. Importer à nouveau vers la même
+  destination est refusé — ça n'écrase jamais un `.vnj` existant.
+- Bouton **« 📂 Ouvrir une collection… »** dans l'en-tête (identique à
+  **File > Open Collection…**) — l'action du quotidien. Ouvre le
+  sélecteur de fichier natif macOS pour choisir un `.vnj` déjà
+  importé ; un `.mvcp` brut ne peut plus être sélectionné ici. Si
+  aucun `.vnj` n'existe encore, le titre du sélecteur le signale et
+  renvoie vers **File > Import Collection…**.
 - Au tout premier lancement, avant d'avoir rien ouvert, VideoNojo
   affiche une collection d'exemple intégrée, entièrement fictive (8
   films inventés, aucune donnée personnelle) — il y a donc toujours

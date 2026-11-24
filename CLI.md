@@ -243,7 +243,9 @@ The long-term goal is a database **independent** from the
 application — bootstrapped once from the real collection (§ "`vc_add
 import`" below), then fed only by VideoNojo, never depending on Movie
 Collector to keep growing. The chosen extension for this persistent
-database is **`.vnc`** — it works exactly like a `.mvcp` (only the
+database is **`.vnj`** (renamed from an initial `.vnc` pick on
+24/11/2026, to match the family naming BookNojo's `.bnj`/MusicNojo's
+`.mnj` settled on) — it works exactly like a `.mvcp` (only the
 presence of a `Movie_data` file inside matters, never the folder's
 name). To keep feeding the real Movie Collector application too during
 a transition period, run the same `add-plan`/`edit-plan`/`delete-plan`
@@ -255,18 +257,18 @@ soon as two databases evolve independently.
 
 ### `vc_add import` — the Movie Collector to VideoNojo transfer
 
-Bootstraps a new independent `.vnc` database from an existing
+Bootstraps a new independent `.vnj` database from an existing
 collection (database + `Images/` folder). Only meant to be run
 **once**: refuses to overwrite a destination that already exists.
 
 ```bash
 ./vc_add import --source "~/Documents/Collectorz/Movie Collector/MyCollection.mvcp"
-# -> collection/MyCollection.vnc (default destination)
+# -> collection/MyCollection.vnj (default destination)
 
 # Or with an explicit destination:
 ./vc_add import \
   --source "~/Documents/Collectorz/Movie Collector/MyCollection.mvcp" \
-  --dest ~/MyCollectionVideoNojo.vnc
+  --dest ~/MyCollectionVideoNojo.vnj
 ```
 
 ## 6. Troubleshooting

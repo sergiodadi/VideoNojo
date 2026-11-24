@@ -92,14 +92,32 @@
 
     <div data-lang-content="fr">
       <section class="card">
-        <h2>📂 Ouvrir une collection</h2>
-        <p><b>« Open Collection… »</b> (dans l'en-tête, ou Fichier → Open
-        Collection… dans la barre de menus) ouvre le sélecteur natif
-        macOS — il n'accepte que les fichiers <code>.mvcp</code>.</p>
+        <h2>📂 Importer puis ouvrir une collection</h2>
+        <p>VideoNojo garde sa propre copie indépendante de votre
+        collection, jamais votre base Movie Collector d'origine — deux
+        actions distinctes.</p>
         <ul>
-          <li>Une collection <code>.mvcp</code> d'une version de Movie
-          Collector différente de celle visée (20.2.2.1) est refusée
-          avec un message clair, plutôt qu'un plantage.</li>
+          <li><b>« File → Import Collection… »</b>, uniquement dans la
+          barre de menu macOS (action rare, à faire une seule fois, pas
+          dans l'en-tête de l'app) : choisissez une vraie collection
+          <code>.mvcp</code> Movie Collector, VideoNojo la copie une
+          seule fois dans une nouvelle base <code>.vnj</code>
+          indépendante, à un emplacement fixe
+          (<code>~/Documents/VideoNojo/&lt;nom&gt;.vnj</code>), puis
+          l'ouvre automatiquement. Le <code>.mvcp</code> d'origine
+          n'est jamais modifié, seulement lu. Une collection
+          <code>.mvcp</code> d'une version de Movie Collector
+          différente de celle visée (20.2.2.1) est refusée avec un
+          message clair. Importer à nouveau vers la même destination
+          est refusé — ça n'écrase jamais un <code>.vnj</code>
+          existant.</li>
+          <li>Bouton <b>« 📂 Ouvrir une collection… »</b> dans l'en-tête
+          (identique à <b>File → Open Collection…</b>) : l'action du
+          quotidien, ouvre le sélecteur natif macOS pour choisir un
+          <code>.vnj</code> déjà importé — un <code>.mvcp</code> brut
+          ne peut plus être sélectionné ici. Si aucun <code>.vnj</code>
+          n'existe encore, le titre du sélecteur le signale et renvoie
+          vers <b>File → Import Collection…</b>.</li>
           <li>Au tout premier lancement, VideoNojo affiche une collection
           d'exemple intégrée, entièrement fictive (8 films inventés) —
           il y a toujours quelque chose à voir, sans jamais exposer de
@@ -217,14 +235,30 @@
 
     <div data-lang-content="en">
       <section class="card">
-        <h2>📂 Opening a collection</h2>
-        <p><b>"Open Collection…"</b> (in the header, or File → Open
-        Collection… in the menu bar) opens the native macOS file picker
-        — it only accepts <code>.mvcp</code> files.</p>
+        <h2>📂 Importing and opening a collection</h2>
+        <p>VideoNojo keeps its own independent copy of your collection,
+        never your original Movie Collector database — two separate
+        actions.</p>
         <ul>
-          <li>A <code>.mvcp</code> collection from a Movie Collector
-          version other than the one targeted (20.2.2.1) is rejected
-          with a clear message, rather than a crash.</li>
+          <li><b>"File → Import Collection…"</b>, in the macOS menu bar
+          only (a rare, one-time action, not in the app's own header):
+          choose a real Movie Collector <code>.mvcp</code> collection,
+          VideoNojo copies it once into a brand-new, independent
+          <code>.vnj</code> database at a fixed location
+          (<code>~/Documents/VideoNojo/&lt;name&gt;.vnj</code>), then
+          opens it automatically. The original <code>.mvcp</code> is
+          only ever read, never modified. A <code>.mvcp</code> from a
+          different Movie Collector version than the one targeted
+          (20.2.2.1) is rejected with a clear message. Importing again
+          into the same destination is refused — it never overwrites
+          an existing <code>.vnj</code>.</li>
+          <li><b>"📂 Open Collection…"</b> button in the header (same as
+          <b>File → Open Collection…</b>): the everyday action, opens
+          the native macOS file picker to choose an already-imported
+          <code>.vnj</code> — a raw <code>.mvcp</code> can no longer be
+          selected here. If no <code>.vnj</code> exists yet, the
+          picker's own title says so and points to <b>File → Import
+          Collection…</b>.</li>
           <li>On the very first launch, VideoNojo shows an entirely
           fictional bundled sample collection (8 invented movies) —
           there's always something to see, without ever exposing real

@@ -256,8 +256,10 @@ L'objectif à long terme est une base **indépendante** de
 l'application — amorcée une fois depuis la vraie collection (§
 « `vc_add import` » ci-dessous), puis alimentée uniquement par
 VideoNojo, sans plus dépendre de Movie Collector pour grandir.
-L'extension choisie pour cette base persistante est **`.vnc`** — elle
-fonctionne exactement comme un `.mvcp` (seule la présence d'un fichier
+L'extension choisie pour cette base persistante est **`.vnj`** (renommée
+depuis un premier choix `.vnc` le 24/11/2026, pour correspondre à la
+convention de la famille — `.bnj` pour BookNojo, `.mnj` pour MusicNojo)
+— elle fonctionne exactement comme un `.mvcp` (seule la présence d'un fichier
 `Movie_data` dedans compte, jamais le nom du dossier). Pour continuer
 à alimenter aussi la vraie application Movie Collector pendant une
 période de transition, relancer la même séquence `add-plan`/
@@ -270,19 +272,19 @@ indépendamment.
 
 ### `vc_add import` — le transfert de Movie Collector vers VideoNojo
 
-Amorce une nouvelle base indépendante `.vnc` à partir d'une collection
+Amorce une nouvelle base indépendante `.vnj` à partir d'une collection
 existante (base + dossier `Images/`). Conçu pour n'être exécuté
 **qu'une seule fois** : refuse d'écraser une destination qui existe
 déjà.
 
 ```bash
 ./vc_add import --source "~/Documents/Collectorz/Movie Collector/MyCollection.mvcp"
-# -> collection/MyCollection.vnc (destination par défaut)
+# -> collection/MyCollection.vnj (destination par défaut)
 
 # Ou avec une destination explicite :
 ./vc_add import \
   --source "~/Documents/Collectorz/Movie Collector/MyCollection.mvcp" \
-  --dest ~/MyCollectionVideoNojo.vnc
+  --dest ~/MyCollectionVideoNojo.vnj
 ```
 
 ## 6. Dépannage

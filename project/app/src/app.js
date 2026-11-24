@@ -155,6 +155,7 @@ const I18N = {
     nav_back_to_collection: "← Back to collection",
     search_placeholder: "Search by title or cast…",
     count_movies: "{n} movie(s)",
+    import_collection_success: "Import complete: {n} movie(s) — opening the new VideoNojo collection.",
     group_all: "All",
     group_sort_tooltip_active: "Sorted by count — click to sort alphabetically",
     group_sort_tooltip_inactive: "Sorted alphabetically — click to sort by count",
@@ -259,6 +260,7 @@ const I18N = {
     nav_back_to_collection: "← Retour à la collection",
     search_placeholder: "Rechercher par titre ou distribution…",
     count_movies: "{n} film(s)",
+    import_collection_success: "Import terminé : {n} film(s) — ouverture de la nouvelle collection VideoNojo.",
     group_all: "Tous",
     group_sort_tooltip_active: "Trié par nombre — cliquer pour trier par ordre alphabétique",
     group_sort_tooltip_inactive: "Trié par ordre alphabétique — cliquer pour trier par nombre",
@@ -1207,6 +1209,17 @@ async function boot() {
   });
   await listen("collection-picked", (event) => {
     loadCollection(event.payload).then(saveState);
+  });
+  // "File > Import Collection…" (native macOS menu only — rare,
+  // one-time action, mirrors BookNojo's/MusicNojo's own split): the
+  // Rust side already bootstrapped a brand-new .vnj on disk
+  // (app/src-tauri's open_import_collection_dialog) before sending
+  // this — unlike 'collection-picked' above, this always means a *new*
+  // database was just created, so it gets its own confirmation message
+  // before loading.
+  await listen("collection-imported", (event) => {
+    alert(t("import_collection_success", { n: event.payload.movie_count }));
+    loadCollection(event.payload.path).then(saveState);
   });
   // Reloads the whole collection (simplest way to pick up the new
   // front_cover everywhere it's shown — table/grid thumbnails, detail

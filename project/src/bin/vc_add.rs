@@ -1,12 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use rusqlite::{Connection, OpenFlags};
 use video_collector_export::{
     backup_database, build_delete_plan, build_edit_plan, build_plan, commit_plan,
-    is_movie_collector_running, looks_like_real_collection, open_readonly, open_writable,
-    resolve_db_path, set_cover, MovieFields, ReplaceFlags, ENT_MOVIE,
+    import_collection_to, is_movie_collector_running, looks_like_real_collection, open_readonly,
+    open_writable, set_cover, MovieFields, ReplaceFlags,
 };
 
 #[derive(Parser)]
@@ -81,41 +80,44 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
-    /// Bootstraps a new, independent ".vnc" database from an existing
+    /// Bootstraps a new, independent ".vnj" database from an existing
     /// collection (package + Images/ folder) — a one-time copy, never
     /// re-run against a destination that already exists. The result
     /// works exactly like a .mvcp (same schema, just a different
     /// extension to mark it as VideoNojo's own going forward, not
-    /// Movie Collector's).
+    /// Movie Collector's). (Renamed from an initial ".vnc" pick on
+    /// 24/11/2026 — ".vnj" matches the family naming BookNojo's own
+    /// ".bnj"/MusicNojo's ".mnj" settled on.)
     Import {
         /// The existing .mvcp (or any other extension — only the
         /// presence of Movie_data inside matters) to copy from.
         #[arg(long)]
         source: PathBuf,
-        /// Defaults to "collection/<source name>.vnc" in the current directory.
+        /// Defaults to "collection/<source name>.vnj" in the current directory.
         #[arg(long)]
         dest: Option<PathBuf>,
     },
 }
 
 /// Default destination when `--dest` is omitted: `collection/<source
-/// basename>.vnc` in the current directory — `.vnc` is the chosen
+/// basename>.vnj` in the current directory — `.vnj` is the chosen
 /// extension for the new, independent "VideoNojo" database going
-/// forward, same convention as BookNojo's `.col`/MusicNojo's `.mnc`.
+/// forward (renamed from an initial `.vnc` pick, see the `Import`
+/// variant's own doc comment).
 fn default_import_dest(source: &Path) -> PathBuf {
     let name = source
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_else(|| "MyCollection".to_string());
-    PathBuf::from("collection").join(format!("{name}.vnc"))
+    PathBuf::from("collection").join(format!("{name}.vnj"))
 }
 
+/// Pre-checks `dest.exists()` itself first (rather than relying only on
+/// the shared `import_collection_to`'s own check) to show its own
+/// message, same split BookNojo's/MusicNojo's `*_add import` keeps
+/// between its CLI message and the shared function's own safety net for
+/// other callers (like VideoNojo's GUI).
 fn cmd_import(source: PathBuf, dest: Option<PathBuf>) -> Result<()> {
-    let source_db = resolve_db_path(&source);
-    let source_pkg = source_db
-        .parent()
-        .context("source package folder not found (expected a .mvcp containing Movie_data)")?;
-
     let dest = dest.unwrap_or_else(|| default_import_dest(&source));
     if dest.exists() {
         bail!(
@@ -125,32 +127,10 @@ fn cmd_import(source: PathBuf, dest: Option<PathBuf>) -> Result<()> {
             dest.display()
         );
     }
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
-    }
 
-    println!("Importing {} to {}...", source_pkg.display(), dest.display());
-    let status = std::process::Command::new("cp")
-        .args(["-R", &source_pkg.to_string_lossy(), &dest.to_string_lossy()])
-        .status()
-        .context("running cp -R")?;
-    if !status.success() {
-        bail!("cp -R failed");
-    }
-    std::process::Command::new("chmod")
-        .args(["-R", "u+w", &dest.to_string_lossy()])
-        .status()
-        .context("running chmod -R u+w")?;
-
-    let dest_movie_data = dest.join("Movie_data");
-    let conn = Connection::open_with_flags(&dest_movie_data, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .with_context(|| format!("opening {}", dest_movie_data.display()))?;
-    let movie_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM ZCOLLECTIBLE WHERE Z_ENT = ?1",
-        [ENT_MOVIE],
-        |row| row.get(0),
-    )?;
+    println!("Importing {} to {}...", source.display(), dest.display());
+    let outcome = import_collection_to(&source, &dest)?;
+    let movie_count = outcome.movie_count;
 
     println!();
     println!("Import complete: {movie_count} movie(s) in {}.", dest.display());
@@ -287,16 +267,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_import_dest_uses_the_vnc_extension_under_collection() {
+    fn default_import_dest_uses_the_vnj_extension_under_collection() {
         assert_eq!(
             default_import_dest(Path::new(
                 "/Users/x/Documents/Collectorz/Movie Collector/MyCollection.mvcp"
             )),
-            PathBuf::from("collection/MyCollection.vnc")
+            PathBuf::from("collection/MyCollection.vnj")
         );
         assert_eq!(
-            default_import_dest(Path::new("Already.vnc")),
-            PathBuf::from("collection/Already.vnc")
+            default_import_dest(Path::new("Already.vnj")),
+            PathBuf::from("collection/Already.vnj")
         );
     }
 

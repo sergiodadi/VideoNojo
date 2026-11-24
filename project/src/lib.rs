@@ -180,6 +180,86 @@ pub fn resolve_db_path(path: &Path) -> std::path::PathBuf {
     }
 }
 
+// ------------------------------------------------- Import (bootstrap a .vnj)
+
+/// Result of a successful [`import_collection_to`] call.
+#[derive(Debug)]
+pub struct ImportOutcome {
+    pub dest: PathBuf,
+    pub movie_count: i64,
+}
+
+/// Computes the fixed destination for a new `.vnj` database bootstrapped
+/// from `source` via [`import_collection_to`]: always
+/// `~/Documents/VideoNojo/<source file stem>.vnj` — a fixed, automatic
+/// location (no "Save As" dialog), same deliberate choice Serge made for
+/// BookNojo's "Import Collection…" menu. Pure path computation: it does
+/// not create any directory or touch the filesystem itself —
+/// `import_collection_to` creates `dest`'s parent directory when it runs.
+pub fn default_vnj_destination(source: &Path) -> Result<PathBuf> {
+    let home = std::env::var("HOME")
+        .context("HOME environment variable not found — can't determine ~/Documents/VideoNojo")?;
+    let name = source
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "MyCollection".to_string());
+    Ok(PathBuf::from(home)
+        .join("Documents")
+        .join("VideoNojo")
+        .join(format!("{name}.vnj")))
+}
+
+/// Bootstraps a brand-new, independent collection at `dest` by copying the
+/// whole document package found at `source` (a `.mvcp`/`.vnj` path, or a
+/// directory already containing `Movie_data`). Meant to run **once** per
+/// new database: refuses outright if `dest` already exists, rather than
+/// ever overwriting one. `source` itself is only ever read, never
+/// modified — this is a plain recursive copy (`cp -R`), not a live link.
+///
+/// Shared by `vc_add import` (the CLI, which pre-checks `dest.exists()`
+/// itself first, to show its own message) and VideoNojo's "File > Import
+/// Collection…" menu (which has no CLI-style message of its own to
+/// preserve, and relies on this function's own checks). Mirrors
+/// BookNojo's/MusicNojo's `import_collection_to` exactly — same plan,
+/// applied to this app.
+pub fn import_collection_to(source: &Path, dest: &Path) -> Result<ImportOutcome> {
+    let source_db = resolve_db_path(source);
+    let source_pkg = source_db
+        .parent()
+        .context("source package folder not found (expected a .mvcp/.vnj containing Movie_data)")?;
+
+    if dest.exists() {
+        anyhow::bail!(
+            "{} already exists — import only ever bootstraps a brand-new database, once, \
+             never to overwrite an existing one.",
+            dest.display()
+        );
+    }
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    }
+
+    let status = std::process::Command::new("cp")
+        .args(["-R", &source_pkg.to_string_lossy(), &dest.to_string_lossy()])
+        .status()
+        .context("running cp -R")?;
+    if !status.success() {
+        anyhow::bail!("cp -R failed");
+    }
+    std::process::Command::new("chmod")
+        .args(["-R", "u+w", &dest.to_string_lossy()])
+        .status()
+        .context("running chmod -R u+w")?;
+
+    let dest_movie_data = dest.join("Movie_data");
+    let conn = Connection::open_with_flags(&dest_movie_data, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .with_context(|| format!("opening {}", dest_movie_data.display()))?;
+    let movie_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM ZCOLLECTIBLE WHERE Z_ENT = ?1", [ENT_MOVIE], |row| row.get(0))?;
+
+    Ok(ImportOutcome { dest: dest.to_path_buf(), movie_count })
+}
+
 /// Every lookup kind in Movie Collector is its own thin entity
 /// (`{Z_PK, Z_ENT, Z_OPT, ZDELEGATE, ZITEMDELEGATE}`) whose `ZDELEGATE`
 /// points at `ZLOOKUPITEMDELEGATE.Z_PK` for the actual display name —
@@ -2368,6 +2448,127 @@ render("");
 mod tests {
     use super::*;
 
+    // `HOME` is process-global; tests run on separate threads by default,
+    // so any test mutating it must hold this lock for its whole duration
+    // (same precaution BookNojo's/MusicNojo's own equivalent tests needed
+    // after a real race was caught in BookNojo's — see that project's
+    // `HOME_ENV_LOCK`).
+    static HOME_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn temp_root(test_name: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("vc_export_it_{test_name}_{}_{nanos}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn default_vnj_destination_uses_the_fixed_documents_videonojo_folder() {
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
+        let original_home = std::env::var("HOME").ok();
+        unsafe { std::env::set_var("HOME", "/tmp/vc_export_test_home") };
+
+        assert_eq!(
+            default_vnj_destination(Path::new("/Users/x/Documents/Collectorz/Movie Collector/MyCollection.mvcp"))
+                .unwrap(),
+            PathBuf::from("/tmp/vc_export_test_home/Documents/VideoNojo/MyCollection.vnj")
+        );
+
+        match original_home {
+            Some(home) => unsafe { std::env::set_var("HOME", home) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+    }
+
+    #[test]
+    fn default_vnj_destination_fails_clearly_without_home() {
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
+        let original_home = std::env::var("HOME").ok();
+        unsafe { std::env::remove_var("HOME") };
+
+        let err = default_vnj_destination(Path::new("MyCollection.mvcp")).unwrap_err();
+        assert!(err.to_string().contains("HOME"));
+
+        if let Some(home) = original_home {
+            unsafe { std::env::set_var("HOME", home) };
+        }
+    }
+
+    /// Uses the committed `sample-collection/` fixture (unlike
+    /// `testdata/`, gitignored/personal — see this file's other test)
+    /// so this one always runs, anywhere this repo is cloned.
+    #[test]
+    fn import_collection_to_copies_the_whole_package_and_counts_movies() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("sample-collection/MyCollection.mvcp");
+        let root = temp_root("import_collection_to_copy");
+        let dest = root.join("Imported.vnj");
+
+        let outcome = import_collection_to(&source, &dest).expect("import_collection_to");
+
+        assert_eq!(outcome.dest, dest);
+        assert_eq!(outcome.movie_count, 8);
+        // Unlike BookNojo's/MusicNojo's own fixtures, this fictional
+        // sample-collection has no Images/ folder at all (checked: only
+        // Movie_data and backups/) — so this only asserts on what it
+        // actually has.
+        assert!(dest.join("Movie_data").is_file(), "Movie_data should have been copied");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn import_collection_to_refuses_to_overwrite_an_existing_destination() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("sample-collection/MyCollection.mvcp");
+        let root = temp_root("import_collection_to_no_overwrite");
+        let dest = root.join("AlreadyThere.vnj");
+        std::fs::create_dir_all(&dest).expect("pre-create destination");
+
+        let err = import_collection_to(&source, &dest).expect_err("should refuse an existing destination");
+        assert!(err.to_string().contains("already exists"), "unexpected error message: {err}");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Replays, outside of any dialog callback, the full chain "File >
+    /// Import Collection…" runs once a `.mvcp` has been picked:
+    /// `default_vnj_destination` then `import_collection_to`, against
+    /// the real personal `testdata/` fixture (which — unlike
+    /// `sample-collection/` — has a real `preferences.plist`, matching
+    /// what a real Movie Collector export looks like). Gitignored/
+    /// personal, like this file's other `testdata/`-dependent test —
+    /// skipped where absent.
+    #[test]
+    fn the_full_import_chain_bootstraps_a_vnj_at_the_fixed_destination() {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/MyCollection.mvcp");
+        if !source.exists() {
+            eprintln!("skipping: no local testdata/ (run refresh-testdata.sh)");
+            return;
+        }
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
+        let fake_home = std::env::temp_dir().join("videonojo_full_import_chain_test_home");
+        let _ = std::fs::remove_dir_all(&fake_home);
+        std::fs::create_dir_all(&fake_home).unwrap();
+        let previous_home = std::env::var("HOME").ok();
+        unsafe { std::env::set_var("HOME", &fake_home) };
+
+        let dest = default_vnj_destination(&source).expect("dest computation must succeed");
+        assert_eq!(dest, fake_home.join("Documents/VideoNojo/MyCollection.vnj"));
+
+        let outcome = import_collection_to(&source, &dest).expect("import must succeed");
+        assert!(dest.join("Movie_data").is_file());
+        assert!(dest.join("Images").is_dir());
+        assert!(outcome.movie_count > 0);
+
+        match previous_home {
+            Some(home) => unsafe { std::env::set_var("HOME", home) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+        let _ = std::fs::remove_dir_all(&fake_home);
+    }
+
     #[test]
     fn exports_against_local_test_copy_if_present() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/MyCollection.mvcp");
@@ -2693,6 +2894,15 @@ mod tests {
 
     #[test]
     fn ensure_not_real_collection_matches_only_under_documents_collectorz() {
+        // `looks_like_real_collection` reads the global `HOME` env var —
+        // this test must hold the same lock the HOME-mutating tests in
+        // this file use, or a concurrent `remove_var("HOME")` elsewhere
+        // makes `var_os("HOME")` return `None` here, silently turning
+        // the real-collection check into a no-op (reproduced for real:
+        // this test started failing as soon as HOME-mutating tests were
+        // added above it — exactly the race BookNojo's own equivalent
+        // test hit first).
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
         assert!(ensure_not_real_collection(Path::new(
             "/Users/x/Documents/Collectorz/Movie Collector/MyCollection.mvcp"
         ))

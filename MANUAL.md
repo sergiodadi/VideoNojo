@@ -6,15 +6,26 @@ This document explains how to use the macOS **VideoNojo** application
 once installed. To download it, see [`README.md`](README.md); to
 compile it from source, see [`BUILD.md`](BUILD.md).
 
-## 1. Opening a collection
+## 1. Importing and opening a collection
 
-- **"Open Collection…"** (in the header, or File → Open Collection…
-  in the menu bar) opens the native macOS file picker to choose a
-  `.mvcp` collection. The picker only accepts `.mvcp` files.
-- A `.mvcp` collection from a Movie Collector version other than the
-  one VideoNojo was built against (20.2.2.1) is rejected at this
-  point, with a clear message rather than a crash or silent
-  corruption.
+VideoNojo keeps its own independent copy of your collection, never
+your original Movie Collector database — two separate actions:
+
+- **"File > Import Collection…"** — in the macOS menu bar only (a
+  rare, one-time action, not in the app's own header). Choose a real
+  Movie Collector `.mvcp` collection; VideoNojo copies it once into a
+  brand-new, independent `.vnj` database at a fixed location
+  (`~/Documents/VideoNojo/<name>.vnj`), then opens it automatically.
+  The original `.mvcp` is only ever read, never modified. A `.mvcp`
+  from a Movie Collector version other than the one VideoNojo was
+  built against (20.2.2.1) is rejected, with a clear message rather
+  than a crash or silent corruption. Importing again into the same
+  destination is refused — it never overwrites an existing `.vnj`.
+- **"📂 Open Collection…"** button in the header (same as **File >
+  Open Collection…**) — the everyday action. Opens the native macOS
+  file picker to choose an already-imported `.vnj`; a raw `.mvcp` can
+  no longer be selected here. If no `.vnj` exists yet, the picker's
+  own title says so and points to **File > Import Collection…** first.
 - On the very first launch, before opening anything, VideoNojo shows
   an entirely fictional bundled sample collection (8 invented movies,
   no personal data) — so there's always something to see, without ever

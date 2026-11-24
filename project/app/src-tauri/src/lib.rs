@@ -130,64 +130,127 @@ fn grant_asset_scope_for_collection<R: tauri::Runtime>(app: &impl tauri::Manager
     }
 }
 
-/// Opens the native file picker for a `.mvcp` collection and, once
-/// one is chosen, emits `"collection-picked"` with its path — the
-/// frontend listens and reloads via `list_movies`. Uses the dialog
-/// plugin's async callback form, never `blocking_*`: a blocking call
-/// from inside a `#[tauri::command]` deadlocks on macOS, since the
-/// native panel needs the main thread and the command runs on a
-/// worker thread.
-///
-/// A file picker, not a folder picker: `.mvcp` is registered with
-/// macOS/LaunchServices as a package (document type) by Movie
-/// Collector itself, so a folder-only picker would grey it out —
-/// `pick_file()` with an extension filter lets it be selected like
-/// any other file.
+/// Header button "Open Collection…" — opens the native macOS file picker,
+/// restricted to an already-imported `.vnj` (mirrors BookNojo's/
+/// MusicNojo's own Import/Open split, applied here 24/11/2026: a real
+/// Movie Collector `.mvcp` is now only ever a one-shot *source* for
+/// "File > Import Collection…", never opened directly here — see
+/// `open_import_collection_dialog`). Emits `"collection-picked"` with
+/// the chosen path — the frontend listens and reloads via
+/// `list_movies`. Uses the dialog plugin's async callback form, never
+/// `blocking_*`: a blocking call from inside a `#[tauri::command]`
+/// deadlocks on macOS, since the native panel needs the main thread
+/// and the command runs on a worker thread. `pick_file()` with an
+/// extension filter lets a `.vnj` package be selected as a single
+/// atomic item rather than navigated into, the same way it already did
+/// for `.mvcp` before this split. No Movie Collector version check
+/// needed any more on this path — that only ever applied to a raw
+/// `.mvcp`, which this picker can no longer select at all. There is no
+/// native file-picker API to show a conditional "empty folder" hint, so
+/// the dialog's own title doubles as the help message when no `.vnj`
+/// exists yet — shown every time, not just when it's actually empty.
 #[tauri::command]
 fn pick_collection(app: tauri::AppHandle) {
     app.dialog()
         .file()
-        .set_title("Open a Movie Collector collection (.mvcp)")
-        .add_filter("Collection", &["mvcp"])
+        .set_title("Open a VideoNojo collection (.vnj) — no .vnj yet? Use File > Import Collection… first")
+        .add_filter("VideoNojo collection", &["vnj"])
         .pick_file(move |file| {
             let Some(file) = file else { return };
-            let Some(local_path) = file.as_path() else {
-                let _ = app.emit("collection-picked", file.to_string());
-                return;
-            };
+            let _ = app.emit("collection-picked", file.to_string());
+        });
+}
 
-            // Only a path picked here goes through this check — the
-            // bundled sample-collection (no preferences.plist at all)
-            // is loaded through a different path at boot and never
-            // hits this, same split BookNojo/MusicNojo's own import
-            // dialogs have.
-            match mvcp_version(local_path) {
+/// Payload for the `collection-imported` event — a brand-new `.vnj` was
+/// just bootstrapped from a `.mvcp` (see `open_import_collection_dialog`).
+/// `movie_count` lets the frontend show an import summary without a
+/// second round trip to count anything itself.
+#[derive(Serialize, Clone)]
+struct CollectionImported {
+    path: String,
+    movie_count: i64,
+}
+
+/// Small one-button error dialog, factored out because
+/// `open_import_collection_dialog` below has three distinct failure
+/// points (unsupported/unverifiable Movie Collector version, destination
+/// already existing, the copy itself failing) that would otherwise
+/// repeat the same `app.dialog()....show(|_| {})` boilerplate three
+/// times. Mirrors BookNojo's/MusicNojo's own `show_error_dialog`.
+fn show_error_dialog(app: &tauri::AppHandle, title: &str, message: impl Into<String>) {
+    app.dialog().message(message.into()).title(title).kind(MessageDialogKind::Error).show(|_| {});
+}
+
+/// "File > Import Collection…" — the native macOS menu's own entry
+/// point (deliberately *not* in the app's own header/menu: imports are
+/// rare, a native-menu-only place suits them, per Serge — same choice as
+/// BookNojo/MusicNojo). Distinct from "Open Collection…" (the header
+/// button, `pick_collection`): Import only ever takes a real Movie
+/// Collector `.mvcp` as source — the picker is filtered accordingly (no
+/// `.vnj` here; re-importing an already-VideoNojo database makes no
+/// sense) — checks its Movie Collector version exactly like the
+/// combined picker used to, then bootstraps a brand-new, independent
+/// `.vnj` at the fixed location `default_vnj_destination` computes
+/// (`~/Documents/VideoNojo/<name>.vnj`) via the shared
+/// `import_collection_to`. The source `.mvcp` is only ever read — this
+/// is a one-shot copy, never a live link.
+fn open_import_collection_dialog(app: &tauri::AppHandle) {
+    let app_handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Import a Movie Collector collection (.mvcp)")
+        .add_filter("Movie Collector collection", &["mvcp"])
+        .pick_file(move |file| {
+            let Some(path) = file else { return };
+            let Some(source) = path.as_path() else { return };
+
+            match mvcp_version(source) {
                 Some(version) if version == SUPPORTED_MVCP_VERSION => {}
                 Some(version) => {
-                    app.dialog()
-                        .message(format!(
+                    show_error_dialog(
+                        &app_handle,
+                        "Unsupported version",
+                        format!(
                             "This collection was created with Movie Collector {version}. \
-                             Only version {SUPPORTED_MVCP_VERSION} is supported — opening cancelled."
-                        ))
-                        .title("Unsupported version")
-                        .kind(MessageDialogKind::Error)
-                        .show(|_| {});
+                             Only version {SUPPORTED_MVCP_VERSION} is supported for import \
+                             — import cancelled."
+                        ),
+                    );
                     return;
                 }
                 None => {
-                    app.dialog()
-                        .message(
-                            "Could not determine which Movie Collector version created this \
-                             collection — opening cancelled as a precaution.",
-                        )
-                        .title("Version could not be verified")
-                        .kind(MessageDialogKind::Error)
-                        .show(|_| {});
+                    show_error_dialog(
+                        &app_handle,
+                        "Version could not be verified",
+                        "Could not determine which Movie Collector version created this \
+                         collection — import cancelled as a precaution.",
+                    );
                     return;
                 }
             }
 
-            let _ = app.emit("collection-picked", local_path.to_string_lossy().to_string());
+            let dest = match video_collector_export::default_vnj_destination(source) {
+                Ok(dest) => dest,
+                Err(e) => {
+                    show_error_dialog(&app_handle, "Import failed", format!("{e:#}"));
+                    return;
+                }
+            };
+
+            match video_collector_export::import_collection_to(source, &dest) {
+                Ok(outcome) => {
+                    let _ = app_handle.emit(
+                        "collection-imported",
+                        CollectionImported {
+                            path: outcome.dest.to_string_lossy().to_string(),
+                            movie_count: outcome.movie_count,
+                        },
+                    );
+                }
+                Err(e) => {
+                    show_error_dialog(&app_handle, "Import failed", format!("{e:#}"));
+                }
+            }
         });
 }
 
@@ -357,7 +420,7 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::
         .build()?;
 
     let file_menu = SubmenuBuilder::new(app, "File")
-        .text("open_collection", "Open Collection…")
+        .text("import_collection", "Import Collection…")
         .separator()
         .close_window()
         .build()?;
@@ -425,7 +488,7 @@ pub fn run() {
             Ok(())
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "open_collection" => pick_collection(app.clone()),
+            "import_collection" => open_import_collection_dialog(app),
             "show_help" => show_help_window(app),
             _ => {}
         })
@@ -448,8 +511,68 @@ mod tests {
     #[test]
     fn mvcp_version_is_none_without_a_preferences_plist() {
         // The bundled sample-collection has no preferences.plist at
-        // all (it's never run through this version check — see
-        // pick_collection's own comment on why).
+        // all — it's never run through this version check, which now
+        // lives in open_import_collection_dialog only.
         assert_eq!(mvcp_version(&sample_collection_path()), None);
+    }
+
+    /// `default_vnj_destination` reads the global `HOME` env var — any
+    /// test mutating it must serialize against every other test doing
+    /// the same, in this crate's own test binary (same precaution
+    /// BookNojo's/MusicNojo's own equivalent tests needed).
+    static HOME_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn testdata_mvcp() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/MyCollection.mvcp")
+    }
+
+    /// `testdata/` is gitignored/personal — skipped where absent, same
+    /// convention the shared crate's own `testdata`-dependent tests use.
+    #[test]
+    fn mvcp_version_reads_the_supported_version_from_the_real_fixture() {
+        let source = testdata_mvcp();
+        if !source.exists() {
+            eprintln!("skipping: no local testdata/ (run refresh-testdata.sh)");
+            return;
+        }
+        assert_eq!(mvcp_version(&source), Some(SUPPORTED_MVCP_VERSION.to_string()));
+    }
+
+    /// Replays, outside of any dialog callback, exactly the sequence
+    /// "File > Import Collection…" runs once a `.mvcp` has been picked
+    /// (`open_import_collection_dialog`'s body): version check, then
+    /// `default_vnj_destination`, then `import_collection_to`. The
+    /// dialog itself (native file picker) can't be driven from a test —
+    /// mirrors BookNojo's/MusicNojo's own equivalent test exactly.
+    #[test]
+    fn the_full_import_chain_bootstraps_a_vnj_at_the_fixed_destination() {
+        let source = testdata_mvcp();
+        if !source.exists() {
+            eprintln!("skipping: no local testdata/ (run refresh-testdata.sh)");
+            return;
+        }
+        let _guard = HOME_ENV_LOCK.lock().unwrap();
+        let fake_home = std::env::temp_dir().join("videonojo_full_import_chain_test_home");
+        let _ = std::fs::remove_dir_all(&fake_home);
+        std::fs::create_dir_all(&fake_home).unwrap();
+        let previous_home = std::env::var("HOME").ok();
+        unsafe { std::env::set_var("HOME", &fake_home) };
+
+        let version = mvcp_version(&source);
+        assert_eq!(version, Some(SUPPORTED_MVCP_VERSION.to_string()), "fixture must still match the supported version");
+
+        let dest = video_collector_export::default_vnj_destination(&source).expect("dest computation must succeed");
+        assert_eq!(dest, fake_home.join("Documents/VideoNojo/MyCollection.vnj"));
+
+        let outcome = video_collector_export::import_collection_to(&source, &dest).expect("import must succeed");
+        assert!(outcome.movie_count > 0);
+        assert!(dest.join("Movie_data").is_file());
+        assert!(dest.join("Images").is_dir());
+
+        match previous_home {
+            Some(home) => unsafe { std::env::set_var("HOME", home) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+        let _ = std::fs::remove_dir_all(&fake_home);
     }
 }
