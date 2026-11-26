@@ -6,6 +6,20 @@ History of **versions published on GitHub**, one entry per
 tag/release — same convention as [BookNojo's CHANGELOG.md](https://github.com/sergiodadi/BookNojo/blob/main/CHANGELOG.md)
 and [MusicNojo's CHANGELOG.md](https://github.com/sergiodadi/MusicNojo/blob/main/CHANGELOG.md).
 
+## [v1.0.0] - 2026-11-26
+
+**First stable release** — VideoNojo exits beta (previous releases were
+v1.0.0b1 through v1.0.0b7).
+
+- **Online search**: prefill a new movie's fields from Wikidata
+  (films) or TVmaze (TV shows), by title — no cover art for films
+  (none of the free, keyless sources provide one; copyright).
+- **Import Collection** (File menu) now bootstraps an independent
+  `.vnj` database from a Movie Collector `.mvcp`, kept separate from
+  the everyday **Open Collection…** button — the original `.mvcp` is
+  never modified, and an existing `.vnj` is never overwritten.
+- The "already exists" message now explains what to do next.
+
 ## [v1.0.0b7] - 2026-11-22
 
 - A cover image can now be picked directly from the "Add Movie" form

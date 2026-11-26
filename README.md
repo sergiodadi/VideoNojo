@@ -29,6 +29,11 @@ Collector and Music Collector respectively).
   and delete movies in a collection — with automatic backups before
   any write, and an outright refusal to write to anything that looks
   like your real collection.
+- Import once from Movie Collector (File > Import Collection…) into
+  VideoNojo's own independent database, then reopen it anytime (Open
+  Collection…) — the original file is never modified.
+- Online search (Wikidata for films, TVmaze for TV shows) to prefill
+  a new movie's fields.
 - Grouping by genre/studio/format/country; search; resizable panes.
 - Multiple sub-collections in one file — tabs switch between them.
 - Bilingual French/English interface.
@@ -72,6 +77,11 @@ To compile from source instead of using the `.dmg`, see
 ## Version history
 
 See [`CHANGELOG.md`](CHANGELOG.md).
+
+## To-do
+
+- Display native alert messages in the right language (currently
+  always English, regardless of the interface language toggle).
 
 ## License
 

@@ -31,6 +31,12 @@ Collector et Music Collector respectivement).
   ajouter, modifier et supprimer des films d'une collection — avec
   sauvegarde automatique avant toute écriture, et refus pur et simple
   d'écrire sur ce qui ressemble à la vraie collection.
+- Importer une fois depuis Movie Collector (File > Import Collection…)
+  dans la propre base indépendante de VideoNojo, puis la rouvrir à
+  tout moment (Open Collection…) — le fichier d'origine n'est jamais
+  modifié.
+- Recherche en ligne (Wikidata pour les films, TVmaze pour les séries
+  TV) pour pré-remplir les champs d'un nouveau film.
 - Regroupement par genre/studio/format/pays ; recherche ; panneaux
   redimensionnables.
 - Plusieurs sous-collections dans un même fichier — des onglets
@@ -78,6 +84,12 @@ Pour compiler depuis les sources plutôt que d'utiliser le `.dmg`, voir
 ## Historique des versions
 
 Voir [`CHANGELOG.fr.md`](CHANGELOG.fr.md).
+
+## À faire
+
+- Afficher les messages des alertes natives dans la bonne langue
+  (actuellement toujours en anglais, quelle que soit la langue
+  choisie dans l'interface).
 
 ## Licence
 
