@@ -233,7 +233,10 @@ pub fn import_collection_to(source: &Path, dest: &Path) -> Result<ImportOutcome>
     if dest.exists() {
         anyhow::bail!(
             "{} already exists — import only ever bootstraps a brand-new database, once, \
-             never to overwrite an existing one.",
+             never to overwrite an existing one. To re-import at this location: quit \
+             VideoNojo, rename or move this folder, then redo File > Import Collection… \
+             (or, for a separate collection alongside this one, pick a source .mvcp file \
+             with a different name).",
             dest.display()
         );
     }
